@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> — Wait Less</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body<% if (locals.user) { %> data-role="<%= user.role %>"<% } %>>
+
+<% if (locals.user) { %>
+<!-- Mobile overlay -->
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <span class="logo-icon">⏱</span>
+    <span class="logo-text">Wait Less</span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <% if (user.role === 'patient') { %>
+      <a href="/patient/dashboard"     class="nav-item"><span class="nav-icon">🏠</span><span class="nav-label">لوحة التحكم</span></a>
+      <a href="/patient/appointments"  class="nav-item"><span class="nav-icon">📅</span><span class="nav-label">مواعيدي</span></a>
+      <a href="/patient/book"          class="nav-item"><span class="nav-icon">➕</span><span class="nav-label">حجز موعد</span></a>
+      <a href="/patient/queue"         class="nav-item"><span class="nav-icon">📋</span><span class="nav-label">حالة الطابور</span></a>
+      <a href="/patient/waiting-list"  class="nav-item"><span class="nav-icon">⏳</span><span class="nav-label">قائمة الانتظار</span></a>
+      <a href="/patient/notifications" class="nav-item"><span class="nav-icon">🔔</span><span class="nav-label">الإشعارات</span><span class="badge" id="notif-badge" style="display:none"></span></a>
+    <% } else if (user.role === 'doctor') { %>
+      <a href="/doctor/dashboard" class="nav-item"><span class="nav-icon">🏠</span><span class="nav-label">لوحة التحكم</span></a>
+      <a href="/doctor/queue"     class="nav-item"><span class="nav-icon">📋</span><span class="nav-label">إدارة الطابور</span></a>
+      <a href="/doctor/schedule"  class="nav-item"><span class="nav-icon">📆</span><span class="nav-label">جدولي</span></a>
+    <% } else if (user.role === 'admin') { %>
+      <a href="/admin/dashboard"    class="nav-item"><span class="nav-icon">🏠</span><span class="nav-label">لوحة التحكم</span></a>
+      <a href="/admin/doctors"      class="nav-item"><span class="nav-icon">👨‍⚕️</span><span class="nav-label">الأطباء</span></a>
+      <a href="/admin/specialties"  class="nav-item"><span class="nav-icon">🏷</span><span class="nav-label">التخصصات</span></a>
+      <a href="/admin/appointments" class="nav-item"><span class="nav-icon">📅</span><span class="nav-label">المواعيد</span></a>
+      <a href="/admin/waiting-list" class="nav-item"><span class="nav-icon">⏳</span><span class="nav-label">قائمة الانتظار</span></a>
+      <a href="/admin/reports"      class="nav-item"><span class="nav-icon">📊</span><span class="nav-label">التقارير</span></a>
+    <% } %>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-info">
+      <div class="user-avatar"><%= user.name.charAt(0) %></div>
+      <div>
+        <div class="user-name"><%= user.name %></div>
+        <div class="user-role"><%= roleName(user.role) %></div>
+      </div>
+    </div>
+    <a href="/auth/logout" class="logout-btn">🚪 تسجيل الخروج</a>
+  </div>
+</aside>
+
+<div class="main-content">
+  <header class="topbar">
+    <div class="topbar-right">
+      <button class="hamburger-btn" id="hamburger-btn" aria-label="القائمة">☰</button>
+      <h1 class="page-title"><%= title %></h1>
+    </div>
+    <% if (user.role === 'patient') { %>
+      <a href="/patient/notifications" class="topbar-notif">
+        🔔 <span id="notif-count-top"></span>
+      </a>
+    <% } %>
+  </header>
+
+  <main class="content-area">
+<% } else { %>
+<div class="auth-wrapper">
+  <main class="content-area">
+<% } %>
+
+    <!-- Flash messages -->
+    <% if (locals.flash) { %>
+      <% if (flash.success) { %><div class="alert alert-success">✅ <%= flash.success %></div><% } %>
+      <% if (flash.error)   { %><div class="alert alert-error">❌ <%= flash.error %></div><% } %>
+    <% } %>
+
+    <%- body %>
+
+  </main>
+<% if (locals.user) { %>
+</div><!-- .main-content -->
+<% } else { %>
+</div><!-- .auth-wrapper -->
+<% } %>
+
+<script src="/js/app.js"></script>
+<% if (locals.user && user.role === 'patient') { %>
+<script src="/js/polling.js"></script>
+<% } %>
+</body>
+</html>
+
+<%
+function roleName(role) {
+  switch(role) {
+    case 'patient': return 'مريض';
+    case 'doctor':  return 'طبيب';
+    case 'admin':   return 'مدير';
+    default:        return role;
+  }
+}
+%>

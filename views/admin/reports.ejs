@@ -1,0 +1,88 @@
+<!-- Period selector -->
+<div class="section" style="margin-bottom:24px">
+  <form method="GET" action="/admin/reports" class="filter-form">
+    <div class="form-group">
+      <label>📊 فترة التقرير</label>
+      <select name="days" onchange="this.form.submit()">
+        <option value="7"  <%= days==7  ? 'selected' : '' %>>آخر 7 أيام</option>
+        <option value="14" <%= days==14 ? 'selected' : '' %>>آخر 14 يوم</option>
+        <option value="30" <%= days==30 ? 'selected' : '' %>>آخر 30 يوم</option>
+        <option value="90" <%= days==90 ? 'selected' : '' %>>آخر 90 يوم</option>
+      </select>
+    </div>
+  </form>
+</div>
+
+<!-- Daily overview -->
+<div class="section">
+  <div class="section-header">
+    <h2><span class="title-icon">📅</span> نظرة عامة يومية</h2>
+  </div>
+  <% if (overview.length === 0) { %>
+    <div class="empty-state">
+      <div class="empty-icon">📊</div>
+      <p>لا توجد بيانات</p>
+    </div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>التاريخ</th><th>الإجمالي</th><th>مكتمل</th><th>ملغى</th><th>لم يحضر</th><th>نسبة الحضور</th></tr>
+        </thead>
+        <tbody>
+          <% overview.forEach(row => { %>
+            <tr>
+              <td><strong><%= row.date %></strong></td>
+              <td><%= row.total %></td>
+              <td class="col-green"><%= row.completed %></td>
+              <td class="col-red"><%= row.cancelled %></td>
+              <td class="col-yellow"><%= row.no_show %></td>
+              <td>
+                <% const rate = row.total > 0 ? Math.round((row.completed / row.total) * 100) : 0; %>
+                <div class="progress-bar"><div style="width:<%= rate %>%"></div></div>
+                <strong><%= rate %>%</strong>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<!-- Per-doctor stats -->
+<div class="section">
+  <div class="section-header">
+    <h2><span class="title-icon">👨‍⚕️</span> أداء الأطباء</h2>
+  </div>
+  <% if (perDoctor.length === 0) { %>
+    <div class="empty-state">
+      <div class="empty-icon">📊</div>
+      <p>لا توجد بيانات</p>
+    </div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>الطبيب</th><th>التخصص</th><th>الإجمالي</th><th>مكتمل</th><th>لم يحضر</th><th>نسبة عدم الحضور</th></tr>
+        </thead>
+        <tbody>
+          <% perDoctor.forEach(doc => { %>
+            <tr>
+              <td><strong><%= doc.doctor_name %></strong></td>
+              <td><%= doc.specialty_name %></td>
+              <td><%= doc.total %></td>
+              <td class="col-green"><%= doc.completed %></td>
+              <td class="col-yellow"><%= doc.no_show %></td>
+              <td>
+                <% const pct = parseFloat(doc.no_show_pct) || 0; %>
+                <div class="progress-bar"><div style="width:<%= Math.min(pct, 100) %>%"></div></div>
+                <strong><%= pct %>%</strong>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>

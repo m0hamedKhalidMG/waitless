@@ -1,0 +1,52 @@
+<div class="auth-visual">
+  <div class="auth-visual-content">
+    <div class="auth-visual-icon">⏱</div>
+    <h2>Wait Less</h2>
+    <p>نظام إدارة المواعيد الذكي الذي يقلل وقت الانتظار وينظم العمل الطبي بكفاءة</p>
+    <ul class="auth-visual-features">
+      <li><span class="feature-icon">📋</span> حجز المواعيد بسهولة</li>
+      <li><span class="feature-icon">📊</span> متابعة الطابور لحظياً</li>
+      <li><span class="feature-icon">🔔</span> إشعارات فورية بالتحديثات</li>
+      <li><span class="feature-icon">⏳</span> قائمة انتظار ذكية</li>
+    </ul>
+  </div>
+</div>
+
+<div class="auth-form-side">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <span class="logo-icon">⏱</span>
+      <h2>تسجيل الدخول</h2>
+      <p>مرحباً بك في Wait Less</p>
+    </div>
+
+    <% if (errors.length > 0) { %>
+      <% errors.forEach(e => { %>
+        <div class="alert alert-error">❌ <%= e.msg %></div>
+      <% }) %>
+    <% } %>
+
+    <form method="POST" action="/auth/login" class="auth-form">
+      <div class="form-group">
+        <label>البريد الإلكتروني</label>
+        <input type="email" name="email" value="<%= old.email || '' %>" placeholder="example@mail.com" required>
+      </div>
+      <div class="form-group">
+        <label>كلمة المرور</label>
+        <input type="password" name="password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">تسجيل الدخول</button>
+    </form>
+
+    <p class="auth-link">ليس لديك حساب؟ <a href="/auth/register">إنشاء حساب جديد</a></p>
+
+    <div class="auth-hint">
+      <small>
+        <strong>للتجربة:</strong><br>
+        مدير: admin@waitless.com / Admin@12345<br>
+        طبيب: ahmed@waitless.com / Doctor@123<br>
+        مريض: mohammed@example.com / Patient@123
+      </small>
+    </div>
+  </div>
+</div>

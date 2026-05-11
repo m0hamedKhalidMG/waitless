@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+
+# Database files (will be recreated on deploy)
+data/
+
+# Debug/temporary files
+debug_*.js
+debug_*.html
+add_test_appt.js
+
+# Vercel
+.vercel
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

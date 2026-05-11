@@ -1,0 +1,46 @@
+<div class="section-header">
+  <span><strong><%= list.length %></strong> طلب انتظار نشط</span>
+</div>
+
+<% if (list.length === 0) { %>
+  <div class="empty-state">
+    <div class="empty-icon">⏳</div>
+    <p>قائمة الانتظار فارغة</p>
+  </div>
+<% } else { %>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>المريض</th>
+          <th>الطبيب</th>
+          <th>التخصص</th>
+          <th>الفترة المطلوبة</th>
+          <th>الحالة</th>
+          <th>تاريخ الطلب</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% list.forEach((entry, i) => { %>
+          <tr class="<%= entry.status === 'notified' ? 'row-highlight' : '' %>">
+            <td><%= i+1 %></td>
+            <td><%= entry.patient_name %></td>
+            <td><%= entry.doctor_name %></td>
+            <td><%= entry.specialty_name %></td>
+            <td><%= entry.preferred_date_from %> ← <%= entry.preferred_date_to %></td>
+            <td>
+              <span class="status-badge <%= entry.status === 'notified' ? 'status-confirmed' : 'status-scheduled' %>">
+                <%= entry.status === 'notified' ? '🔔 عرض مُرسَل' : '⏳ في الانتظار' %>
+              </span>
+              <% if (entry.expires_at && entry.status === 'notified') { %>
+                <div class="hint" style="font-size:11px;margin:4px 0 0">ينتهي: <%= entry.expires_at %></div>
+              <% } %>
+            </td>
+            <td><%= entry.created_at ? entry.created_at.slice(0,16) : '' %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>

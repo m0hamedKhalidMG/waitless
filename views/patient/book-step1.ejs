@@ -1,0 +1,32 @@
+<div class="booking-steps">
+  <div class="step active">1. التخصص</div>
+  <div class="step">2. الطبيب</div>
+  <div class="step">3. الموعد</div>
+</div>
+
+<div class="welcome-banner">
+  <h2>اختر التخصص الطبي</h2>
+  <p>ابدأ بحجز موعدك باختيار التخصص المناسب</p>
+</div>
+
+<div class="specialty-grid">
+  <% specialties.forEach(s => { %>
+    <a href="/patient/book/doctors?specialty_id=<%= s.id %>" class="specialty-card">
+      <div class="specialty-icon"><%= specialtyIcon(s.name) %></div>
+      <div class="specialty-name"><%= s.name %></div>
+      <div class="specialty-count"><%= s.doctor_count %> طبيب</div>
+    </a>
+  <% }) %>
+</div>
+
+<%
+function specialtyIcon(name) {
+  if (name.includes('أسنان')) return '🦷';
+  if (name.includes('عيون')) return '👁';
+  if (name.includes('أطفال')) return '👶';
+  if (name.includes('قلب')) return '❤️';
+  if (name.includes('جلد')) return '🧴';
+  if (name.includes('عظام')) return '🦴';
+  return '🏥';
+}
+%>

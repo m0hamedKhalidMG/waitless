@@ -1,0 +1,132 @@
+
+<div class="section" style="margin-bottom:24px">
+  <div class="section-header">
+    <form method="GET" action="/doctor/queue" class="form-inline" style="gap: 12px; align-items: flex-end; margin-bottom: 0;">
+      <div class="form-group" style="margin-bottom:0">
+        <label for="queue-date">📅 التاريخ:</label>
+        <input type="date" id="queue-date" name="date" value="<%= date %>" class="form-control" required>
+      </div>
+      <button type="submit" class="btn btn-primary">📅 عرض المواعيد والطابور</button>
+    </form>
+    <span class="hint" style="margin:0">يتحدث كل 30 ثانية</span>
+  </div>
+</div>
+
+<!-- Appointments for selected date -->
+<div class="section">
+  <div class="section-header">
+    <h2><span class="title-icon">📋</span> مواعيد <%= formatDate(date) %></h2>
+  </div>
+
+  <% if (appointments.length === 0) { %>
+    <p class="hint">لا توجد حجوزات لهذا اليوم</p>
+  <% } else { %>
+    <div class="appointments-list">
+      <% appointments.forEach(appt => { %>
+        <% const inQueue = queue.find(q => q.appointment_id === appt.id); %>
+        <div class="appt-card-full <%= inQueue ? 'entry-active' : '' %>">
+          <div class="appt-date-block">
+            <div class="appt-day-full">الموعد</div>
+            <div class="appt-time-big"><%= appt.appointment_time %></div>
+          </div>
+          <div class="appt-details">
+            <div class="appt-doctor-name">👤 <%= appt.patient_name %></div>
+            <% if (appt.patient_phone) { %><div class="appt-spec">📞 <%= appt.patient_phone %></div><% } %>
+            <% if (appt.notes) { %><div class="appt-notes">📝 <%= appt.notes %></div><% } %>
+          </div>
+          <div class="appt-actions-col">
+            <span class="status-badge status-<%= appt.status %>"><%= statusLabel(appt.status) %></span>
+            <% if (!inQueue && ['scheduled','confirmed'].includes(appt.status)) { %>
+              <form method="POST" action="/doctor/queue/checkin/<%= appt.id %>">
+                <button class="btn btn-success btn-sm">✅ تسجيل الحضور</button>
+              </form>
+            <% } else if (inQueue) { %>
+              <span class="status-badge status-waiting">👤 في الطابور #<%= inQueue.position %></span>
+            <% } %>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<!-- Queue -->
+<div class="section">
+  <div class="section-header">
+    <h2><span class="title-icon">📋</span> طابور <%= formatDate(date) %></h2>
+  </div>
+
+  <% if (queue.length === 0) { %>
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <p>لا يوجد مرضى في الطابور لهذا اليوم</p>
+    </div>
+  <% } else { %>
+    <div class="queue-cards">
+      <% queue.forEach((entry, i) => { %>
+        <div class="queue-entry-card <%= entry.status === 'in_progress' ? 'entry-active' : '' %> <%= ['completed','no_show'].includes(entry.status) ? 'entry-done' : '' %>">
+          <div class="queue-num"><%= entry.position %></div>
+          <div class="queue-patient-info">
+            <div class="q-patient-name">👤 <%= entry.patient_name %></div>
+            <% if (entry.patient_phone) { %><div class="q-phone">📞 <%= entry.patient_phone %></div><% } %>
+            <div class="q-time">⏰ موعد: <%= entry.appointment_time || '—' %></div>
+            <% if (entry.check_in_time) { %><div class="q-checkin">✅ حضر: <%= entry.check_in_time.slice(11,16) %></div><% } %>
+            <% if (entry.notes) { %><div class="q-notes">📝 <%= entry.notes %></div><% } %>
+          </div>
+          <div class="queue-entry-actions">
+            <span class="status-badge status-<%= entry.status %>"><%= statusLabel(entry.status) %></span>
+
+            <% if (entry.status === 'waiting') { %>
+              <form method="POST" action="/doctor/queue/<%= entry.id %>/status">
+                <input type="hidden" name="status" value="called">
+                <button class="btn btn-primary btn-sm">📢 استدعاء</button>
+              </form>
+              <form method="POST" action="/doctor/queue/<%= entry.id %>/status">
+                <input type="hidden" name="status" value="no_show">
+                <button class="btn btn-outline btn-sm">❌ لم يحضر</button>
+              </form>
+            <% } %>
+            <% if (entry.status === 'called') { %>
+              <form method="POST" action="/doctor/queue/<%= entry.id %>/status">
+                <input type="hidden" name="status" value="in_progress">
+                <button class="btn btn-warning btn-sm">🩺 بدء الكشف</button>
+              </form>
+              <form method="POST" action="/doctor/queue/<%= entry.id %>/status">
+                <input type="hidden" name="status" value="no_show">
+                <button class="btn btn-outline btn-sm">❌ لم يحضر</button>
+              </form>
+            <% } %>
+            <% if (entry.status === 'in_progress') { %>
+              <form method="POST" action="/doctor/queue/<%= entry.id %>/status">
+                <input type="hidden" name="status" value="completed">
+                <button class="btn btn-success btn-sm">✅ اكتمل</button>
+              </form>
+              <form method="POST" action="/doctor/queue/<%= entry.id %>/status">
+                <input type="hidden" name="status" value="no_show">
+                <button class="btn btn-outline btn-sm">❌ لم يحضر</button>
+              </form>
+            <% } %>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<script>window.DOCTOR_QUEUE_DATE = '<%= date %>';</script>
+
+<%
+function statusLabel(s) {
+  return { scheduled:'مجدول', confirmed:'مؤكد', in_progress:'جاري الكشف', completed:'اكتمل', cancelled:'ملغى', no_show:'لم يحضر', waiting:'انتظار', called:'تم استدعاؤه' }[s] || s;
+}
+function formatDate(d) {
+  if (!d) return '';
+  try {
+    const date = new Date(d + 'T00:00:00');
+    if (isNaN(date.getTime())) return d;
+    return date.toLocaleDateString('ar-SA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  } catch (e) {
+    return d;
+  }
+}
+%>

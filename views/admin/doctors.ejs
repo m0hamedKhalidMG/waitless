@@ -1,0 +1,84 @@
+<!-- Add doctor form -->
+<div class="section">
+  <div class="section-header">
+    <h2><span class="title-icon">➕</span> إضافة طبيب جديد</h2>
+  </div>
+  <form method="POST" action="/admin/doctors" class="form-card form-grid">
+    <div class="form-group">
+      <label>الاسم</label>
+      <input type="text" name="name" placeholder="د. محمد عبدالله" required>
+    </div>
+    <div class="form-group">
+      <label>البريد الإلكتروني</label>
+      <input type="email" name="email" placeholder="doctor@example.com" required>
+    </div>
+    <div class="form-group">
+      <label>رقم الجوال</label>
+      <input type="tel" name="phone" placeholder="05xxxxxxxx">
+    </div>
+    <div class="form-group">
+      <label>كلمة المرور الأولية</label>
+      <input type="password" name="password" placeholder="8 أحرف على الأقل" required>
+    </div>
+    <div class="form-group">
+      <label>التخصص</label>
+      <select name="specialty_id" required>
+        <option value="">-- اختر التخصص --</option>
+        <% specialties.forEach(s => { %>
+          <option value="<%= s.id %>"><%= s.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>متوسط مدة الكشف (دقيقة)</label>
+      <input type="number" name="avg_consultation_minutes" value="15" min="5" max="120" required>
+    </div>
+    <div class="form-col-full">
+      <button type="submit" class="btn btn-primary">➕ إضافة الطبيب</button>
+    </div>
+  </form>
+</div>
+
+<!-- Doctors list -->
+<div class="section">
+  <div class="section-header">
+    <h2><span class="title-icon">👨‍⚕️</span> قائمة الأطباء (<%= doctors.length %>)</h2>
+  </div>
+  <% if (doctors.length === 0) { %>
+    <div class="empty-state"><div class="empty-icon">👨‍⚕️</div><p>لا يوجد أطباء</p></div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>الاسم</th><th>البريد</th><th>الجوال</th><th>التخصص</th><th>مدة الكشف</th><th>الحالة</th><th>إجراءات</th></tr>
+        </thead>
+        <tbody>
+          <% doctors.forEach(doc => { %>
+            <tr>
+              <td><strong><%= doc.name %></strong></td>
+              <td><%= doc.email %></td>
+              <td><%= doc.phone || '—' %></td>
+              <td><%= doc.specialty_name %></td>
+              <td><%= doc.avg_consultation_minutes %> د</td>
+              <td>
+                <span class="status-badge <%= doc.is_active ? 'status-confirmed' : 'status-cancelled' %>">
+                  <%= doc.is_active ? '✅ نشط' : '🔒 غير نشط' %>
+                </span>
+              </td>
+              <td>
+                <div class="table-actions">
+                  <form method="POST" action="/admin/doctors/<%= doc.id %>/toggle">
+                    <button class="btn btn-outline btn-xs"><%= doc.is_active ? '🔒 تعطيل' : '✅ تفعيل' %></button>
+                  </form>
+                  <form method="POST" action="/admin/doctors/<%= doc.id %>/delete" onsubmit="return confirm('هل تريد حذف هذا الطبيب؟ سيتم حذف بياناته بالكامل.')">
+                    <button class="btn btn-danger btn-xs">🗑 حذف</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>

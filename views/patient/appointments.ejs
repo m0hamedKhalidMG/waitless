@@ -1,0 +1,54 @@
+<!-- Filter tabs -->
+<div class="tabs">
+  <a href="?filter=upcoming"  class="tab <%= filter==='upcoming'  ? 'active' : '' %>">📋 القادمة</a>
+  <a href="?filter=past"      class="tab <%= filter==='past'      ? 'active' : '' %>">📚 السابقة</a>
+  <a href="?filter=cancelled" class="tab <%= filter==='cancelled' ? 'active' : '' %>">❌ الملغاة</a>
+</div>
+
+<div class="section-header">
+  <span><strong><%= appointments.length %></strong> موعد</span>
+  <a href="/patient/book" class="btn btn-primary btn-sm">➕ حجز موعد جديد</a>
+</div>
+
+<% if (appointments.length === 0) { %>
+  <div class="empty-state">
+    <div class="empty-icon">📅</div>
+    <p>لا توجد مواعيد</p>
+    <a href="/patient/book" class="btn btn-primary">حجز موعد</a>
+  </div>
+<% } else { %>
+  <div class="appointments-list">
+    <% appointments.forEach(appt => { %>
+      <div class="appt-card-full">
+        <div class="appt-date-block">
+          <div class="appt-day-full"><%= formatDate(appt.appointment_date) %></div>
+          <div class="appt-time-big"><%= appt.appointment_time %> — <%= appt.end_time %></div>
+        </div>
+        <div class="appt-details">
+          <div class="appt-doctor-name">👨‍⚕️ <%= appt.doctor_name %></div>
+          <div class="appt-spec"><%= appt.specialty_name %></div>
+          <% if (appt.notes) { %><div class="appt-notes">📝 <%= appt.notes %></div><% } %>
+        </div>
+        <div class="appt-actions-col">
+          <span class="status-badge status-<%= appt.status %>"><%= statusLabel(appt.status) %></span>
+          <% if (['scheduled','confirmed'].includes(appt.status)) { %>
+            <form method="POST" action="/patient/appointments/<%= appt.id %>/cancel" onsubmit="return confirm('هل تريد إلغاء هذا الموعد؟')">
+              <button type="submit" class="btn btn-danger btn-sm">❌ إلغاء</button>
+            </form>
+          <% } %>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+<% } %>
+
+<%
+function statusLabel(s) {
+  const map = { scheduled:'مجدول', confirmed:'مؤكد', in_progress:'جاري', completed:'مكتمل', cancelled:'ملغى', no_show:'لم يحضر' };
+  return map[s] || s;
+}
+function formatDate(d) {
+  if (!d) return '';
+  return new Date(d + 'T00:00:00').toLocaleDateString('ar-SA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+}
+%>

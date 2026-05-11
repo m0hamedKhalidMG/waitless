@@ -1,0 +1,59 @@
+<div class="section-header">
+  <span><strong><%= notifications.length %></strong> إشعار</span>
+  <div>صفحة <%= page %> من <%= totalPages %></div>
+</div>
+
+<% if (notifications.length === 0) { %>
+  <div class="empty-state">
+    <div class="empty-icon">🔔</div>
+    <p>لا توجد إشعارات</p>
+  </div>
+<% } else { %>
+  <div class="notifs-list">
+    <% notifications.forEach(n => { %>
+      <div class="notif-item-full <%= n.is_read ? '' : 'unread' %>">
+        <div class="notif-icon-lg"><%= notifIcon(n.type) %></div>
+        <div class="notif-body">
+          <div class="notif-title-lg"><%= n.title %></div>
+          <div class="notif-msg-lg"><%= n.message %></div>
+          <div class="notif-meta">
+            <span class="notif-time"><%= formatDate(n.created_at) %></span>
+            <span class="notif-type-badge notif-type-<%= n.type %>"><%= typeLabel(n.type) %></span>
+          </div>
+
+          <% if (n.type === 'slot_available' && n.related_waiting_id && n.waiting_status === 'notified') { %>
+            <div class="offer-actions" style="margin-top:12px">
+              <form method="POST" action="/patient/waiting-list/<%= n.related_waiting_id %>/confirm" style="display:inline">
+                <button class="btn btn-success btn-sm">✅ تأكيد الموعد</button>
+              </form>
+              <form method="POST" action="/patient/waiting-list/<%= n.related_waiting_id %>/decline" style="display:inline;margin-right:8px">
+                <button class="btn btn-outline btn-sm">❌ رفض</button>
+              </form>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+
+  <!-- Pagination -->
+  <% if (totalPages > 1) { %>
+  <div class="pagination">
+    <% if (page > 1) { %><a href="?page=<%= page-1 %>" class="btn btn-outline btn-sm">→ السابق</a><% } %>
+    <% if (page < totalPages) { %><a href="?page=<%= page+1 %>" class="btn btn-outline btn-sm">← التالي</a><% } %>
+  </div>
+  <% } %>
+<% } %>
+
+<%
+function notifIcon(t) {
+  return { appointment_reminder:'⏰', slot_available:'🎉', queue_update:'📋', general:'📢' }[t] || '🔔';
+}
+function typeLabel(t) {
+  return { appointment_reminder:'تذكير', slot_available:'موعد متاح', queue_update:'طابور', general:'عام' }[t] || t;
+}
+function formatDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('ar-SA', { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+%>

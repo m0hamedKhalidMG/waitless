@@ -1,0 +1,143 @@
+<!-- Welcome Banner -->
+<div class="welcome-banner">
+  <h2>مرحباً، <%= user.name %> 👨‍⚕️</h2>
+  <p>إليك ملخص عملك</p>
+  <div class="welcome-date">📅 <%= selectedDate %></div>
+</div>
+
+<!-- Date selector -->
+<div class="section" style="margin-bottom: 24px; padding: 20px;">
+  <form method="GET" action="/doctor/dashboard" class="form-inline" style="gap: 12px; align-items: flex-end;">
+    <div class="form-group" style="max-width: 300px; margin-bottom: 0;">
+      <label for="dash-date-picker">📅 التاريخ:</label>
+      <input type="date" id="dash-date-picker" name="date"
+             value="<%= selectedDate %>"
+             max="<%= today %>"
+             class="form-control"
+             required>
+    </div>
+    <button type="submit" class="btn btn-primary">
+      📅 عرض المواعيد والطابور
+    </button>
+  </form>
+</div>
+
+<!-- Stats row -->
+<div class="stats-row">
+  <div class="stat-card stat-blue">
+    <div class="stat-icon-circle">📋</div>
+    <div class="stat-number"><%= stats.total %></div>
+    <div class="stat-label">مواعيد اليوم</div>
+  </div>
+  <div class="stat-card stat-green">
+    <div class="stat-icon-circle">✅</div>
+    <div class="stat-number"><%= stats.seen %></div>
+    <div class="stat-label">تم الكشف</div>
+  </div>
+  <div class="stat-card stat-yellow">
+    <div class="stat-icon-circle">⏳</div>
+    <div class="stat-number"><%= stats.remaining %></div>
+    <div class="stat-label">متبقٍ</div>
+  </div>
+  <div class="stat-card stat-red">
+    <div class="stat-icon-circle">❌</div>
+    <div class="stat-number"><%= stats.noShow %></div>
+    <div class="stat-label">لم يحضر</div>
+  </div>
+</div>
+
+<!-- Selected date's queue -->
+<div class="section">
+  <div class="section-header">
+    <h2><span class="title-icon">📋</span> طابور <%= formatDate(selectedDate) %></h2>
+    <a href="/doctor/queue?date=<%= selectedDate %>" class="btn btn-primary btn-sm">إدارة الطابور</a>
+  </div>
+
+  <% if (queue.length === 0) { %>
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <p>لا يوجد مرضى في الطابور لهذا اليوم</p>
+    </div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>المريض</th>
+            <th>وقت الموعد</th>
+            <th>وقت الحضور</th>
+            <th>الحالة</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% queue.forEach(entry => { %>
+            <tr class="<%= entry.status === 'in_progress' ? 'row-active' : '' %>">
+              <td><strong><%= entry.position %></strong></td>
+              <td><%= entry.patient_name %></td>
+              <td><%= entry.appointment_time || '—' %></td>
+              <td><%= entry.check_in_time ? entry.check_in_time.slice(11,16) : '—' %></td>
+              <td><span class="status-badge status-<%= entry.status %>"><%= statusLabel(entry.status) %></span></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<!-- Selected date's appointments (not checked in yet) -->
+<div class="section">
+  <div class="section-header">
+    <h2><span class="title-icon">📋</span> مواعيد <%= formatDate(selectedDate) %></h2>
+  </div>
+  <% const checkedInIds = new Set(queue.map(q => q.appointment_id)); %>
+  <% const notCheckedIn = todayAppointments.filter(a => !checkedInIds.has(a.id) && ['scheduled','confirmed'].includes(a.status)); %>
+
+  <% if (notCheckedIn.length === 0) { %>
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <p>لا توجد حجوزات لهذا اليوم</p>
+    </div>
+  <% } else { %>
+    <div class="appointments-list">
+      <% notCheckedIn.forEach(appt => { %>
+        <div class="appt-card-full">
+          <div class="appt-date-block">
+            <div class="appt-day-full">الموعد</div>
+            <div class="appt-time-big"><%= appt.appointment_time %></div>
+          </div>
+          <div class="appt-details">
+            <div class="appt-doctor-name">👤 <%= appt.patient_name %></div>
+            <% if (appt.patient_phone) { %><div class="appt-spec">📞 <%= appt.patient_phone %></div><% } %>
+            <% if (appt.notes) { %><div class="appt-notes">📝 <%= appt.notes %></div><% } %>
+          </div>
+          <div class="appt-actions-col">
+            <span class="status-badge status-<%= appt.status %>"><%= statusLabel(appt.status) %></span>
+            <form method="POST" action="/doctor/queue/checkin/<%= appt.id %>">
+              <button class="btn btn-success btn-sm">✅ تسجيل الحضور</button>
+            </form>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<%
+function formatDate(d) {
+  if (!d) return '';
+  try {
+    const date = new Date(d + 'T00:00:00');
+    if (isNaN(date.getTime())) return d;
+    return date.toLocaleDateString('ar-SA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  } catch (e) {
+    return d;
+  }
+}
+
+function statusLabel(s) {
+  const m = { scheduled:'مجدول', confirmed:'مؤكد', in_progress:'جاري الكشف', completed:'اكتمل', cancelled:'ملغى', no_show:'لم يحضر', waiting:'انتظار', called:'تم استدعاؤه' };
+  return m[s] || s;
+}
+%>

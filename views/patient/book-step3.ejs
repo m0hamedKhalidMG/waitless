@@ -1,0 +1,128 @@
+<div class="booking-steps">
+  <div class="step done">1. التخصص</div>
+  <div class="step done">2. الطبيب</div>
+  <div class="step active">3. الموعد</div>
+</div>
+
+<div class="breadcrumb">
+  <a href="/patient/book">← تغيير التخصص</a>
+  <span> / <%= doctor.specialty_name %> / <%= doctor.name %></span>
+</div>
+
+<div class="doctor-banner">
+  <div class="doctor-avatar-lg"><%= doctor.name.charAt(0) %></div>
+  <div>
+    <div class="doctor-name-lg"><%= doctor.name %></div>
+    <div class="doctor-spec"><%= doctor.specialty_name %></div>
+    <div class="doctor-dur">⏱ مدة الكشف: <%= doctor.avg_consultation_minutes %> دقيقة</div>
+  </div>
+</div>
+
+<!-- Doctor working days info -->
+<div class="section" style="margin-bottom: 24px; padding: 16px 20px;">
+  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+    <span style="font-weight: 700; color: var(--gray-700);">🕐 أيام العمل:</span>
+    <% if (workingDays.length > 0) { %>
+      <% workingDays.forEach((day, i) => { %>
+        <span class="status-badge status-confirmed" style="font-size: 12px;"><%= day %></span>
+      <% }) %>
+    <% } else { %>
+      <span class="hint" style="margin: 0;">لم يُحدد جدول عمل لهذا الطبيب</span>
+    <% } %>
+  </div>
+</div>
+
+<!-- Date selector -->
+<div class="section" style="margin-bottom: 24px;">
+  <div class="section-header" style="margin-bottom: 12px;">
+    <h2><span class="title-icon">📅</span> اختيار التاريخ</h2>
+  </div>
+  <form method="GET" action="/patient/book/slots" class="form-inline" style="gap: 12px; align-items: flex-end;">
+    <input type="hidden" name="doctor_id" value="<%= doctor.id %>">
+    <div class="form-group" style="max-width: 300px; margin-bottom: 0;">
+      <label for="slot-date-picker">📆 حدد اليوم المناسب</label>
+      <input type="date" id="slot-date-picker" name="date"
+             value="<%= selectedDate || '' %>"
+             min="<%= today %>"
+             max="<%= toDate %>"
+             class="form-control"
+             required>
+    </div>
+    <button type="submit" class="btn btn-primary">
+      📅 عرض المواعيد المتاحة
+    </button>
+  </form>
+  <% if (selectedDate) { %>
+    <p class="hint" style="margin-top: 8px;">📆 المواعيد المتاحة يوم <strong><%= formatDate(selectedDate) %></strong></p>
+  <% } else { %>
+    <p class="hint" style="margin-top: 8px;">📆 اختر تاريخاً بين اليوم و 6 أشهر قادمة</p>
+  <% } %>
+</div>
+
+<% if (!selectedDate) { %>
+  <!-- No date selected -->
+  <div class="empty-state">
+    <div class="empty-icon">📅</div>
+    <h3>اختر التاريخ أولاً</h3>
+    <p>استخدم حقل التاريخ أعلاه لتحديد اليوم الذي تريد الحجز فيه</p>
+    <a href="/patient/book/doctors?specialty_id=<%= doctor.specialty_id %>" class="btn btn-outline">تغيير الطبيب</a>
+  </div>
+<% } else if (slots.length === 0) { %>
+  <!-- Date selected but no slots -->
+  <div class="empty-state">
+    <div class="empty-icon">📅</div>
+    <h3>لا توجد مواعيد متاحة</h3>
+    <p>لا يوجد مواعيد متاحة في يوم <%= formatDate(selectedDate) %> مع <%= doctor.name %></p>
+    <% if (workingDays.length > 0) { %>
+      <p class="hint">💡 أيام عمل الطبيب: <%= workingDays.join('، ') %></p>
+    <% } %>
+    <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 16px;">
+      <a href="/patient/waiting-list" class="btn btn-primary">قائمة الانتظار</a>
+      <a href="/patient/book/doctors?specialty_id=<%= doctor.specialty_id %>" class="btn btn-outline">تغيير الطبيب</a>
+    </div>
+  </div>
+<% } else { %>
+  <!-- Date selected with available slots -->
+  <div class="section">
+    <div class="section-header">
+      <h2><span class="title-icon">📅</span> المواعيد المتاحة يوم <%= formatDate(selectedDate) %></h2>
+    </div>
+    <div class="slots-grid">
+      <% slots.forEach(slot => { %>
+        <form method="POST" action="/patient/book/confirm" class="slot-form">
+          <input type="hidden" name="doctor_id" value="<%= doctor.id %>">
+          <input type="hidden" name="date"      value="<%= slot.date %>">
+          <input type="hidden" name="time"      value="<%= slot.start %>">
+          <input type="hidden" name="notes" value="" class="slot-notes-input">
+          <button type="submit" class="slot-btn">
+            <span class="slot-time"><%= slot.start %></span>
+            <span class="slot-end">← <%= slot.end %></span>
+          </button>
+        </form>
+      <% }) %>
+    </div>
+  </div>
+
+  <div class="book-notes-form">
+    <h3>📝 ملاحظات (اختياري)</h3>
+    <p class="hint">يمكنك إضافة ملاحظات طبية لإرسالها مع الحجز</p>
+    <textarea id="booking-notes" class="form-control" rows="3" placeholder="مثل: أعاني من حساسية لدواء معين..."></textarea>
+    <p class="hint" style="margin-top:8px; background: var(--info-l); border-color: var(--info);">⚡ اختر الموعد المناسب من الأعلى لإتمام الحجز مباشرة</p>
+  </div>
+
+  <script>
+  const notesTA = document.getElementById('booking-notes');
+  if (notesTA) {
+    notesTA.addEventListener('input', function() {
+      document.querySelectorAll('.slot-notes-input').forEach(inp => inp.value = this.value);
+    });
+  }
+  </script>
+<% } %>
+
+<%
+function formatDate(d) {
+  if (!d) return '';
+  return new Date(d + 'T00:00:00').toLocaleDateString('ar-SA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+}
+%>

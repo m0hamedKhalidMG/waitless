@@ -1,0 +1,59 @@
+<% if (!queueEntry) { %>
+  <div class="empty-state">
+    <div class="empty-icon">📋</div>
+    <h3>أنت لست في أي طابور اليوم</h3>
+    <p>عند حضورك للعيادة وتسجيل حضورك، ستظهر هنا معلومات طابورك.</p>
+    <a href="/patient/appointments" class="btn btn-primary">مواعيدي</a>
+  </div>
+<% } else { %>
+  <div class="queue-status-card">
+    <div class="queue-doctor">
+      <strong>👨‍⚕️ <%= queueEntry.doctor_name %></strong>
+      <span class="specialty"><%= queueEntry.specialty_name %></span>
+    </div>
+
+    <div class="queue-position-display">
+      <div class="position-circle">
+        <span class="pos-num">#<%= queueEntry.position %></span>
+        <span class="pos-label">موقعك</span>
+      </div>
+    </div>
+
+    <div class="queue-stats">
+      <div class="q-stat">
+        <div class="q-stat-val"><%= waitMinutes %></div>
+        <div class="q-stat-label">دقيقة تقريباً</div>
+      </div>
+      <div class="q-stat">
+        <div class="q-stat-val status-<%= queueEntry.status %>"><%= statusLabel(queueEntry.status) %></div>
+        <div class="q-stat-label">الحالة</div>
+      </div>
+    </div>
+
+    <% if (queueEntry.appointment_time) { %>
+      <div class="appt-time-banner">
+        🕐 موعدك المحدد: <strong><%= queueEntry.appointment_time %></strong>
+      </div>
+    <% } %>
+
+    <div class="wait-note">
+      <p>🔄 يتم تحديث هذه الصفحة كل 30 ثانية تلقائياً</p>
+      <p>⏱ الوقت المتوقع للانتظار = الموقع × متوسط مدة الكشف</p>
+    </div>
+
+    <div id="last-updated" class="last-updated">آخر تحديث: الآن</div>
+  </div>
+<% } %>
+
+<% if (queueEntry) { %>
+<script>
+  window.WAITLESS_QUEUE = true;
+</script>
+<% } %>
+
+<%
+function statusLabel(s) {
+  const map = { waiting:'في الانتظار', called:'تم استدعاؤه', in_progress:'جاري الكشف', completed:'مكتمل', no_show:'لم يحضر' };
+  return map[s] || s;
+}
+%>

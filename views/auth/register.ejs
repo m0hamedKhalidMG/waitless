@@ -1,0 +1,55 @@
+<div class="auth-visual">
+  <div class="auth-visual-content">
+    <div class="auth-visual-icon">🙋</div>
+    <h2>انضم إلينا</h2>
+    <p>سجّل حسابك الآن واستمتع بتجربة حجز المواعيد الأسهل والأسرع</p>
+    <ul class="auth-visual-features">
+      <li><span class="feature-icon">⚡</span> حجز فوري للمواعيد</li>
+      <li><span class="feature-icon">📱</span> إشعارات ذكية</li>
+      <li><span class="feature-icon">📋</span> تتبع حالة الطابور</li>
+      <li><span class="feature-icon">🔒</span> بياناتك في أمان</li>
+    </ul>
+  </div>
+</div>
+
+<div class="auth-form-side">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <span class="logo-icon">⏱</span>
+      <h2>إنشاء حساب</h2>
+      <p>انضم إلى نظام Wait Less</p>
+    </div>
+
+    <% if (errors.length > 0) { %>
+      <% errors.forEach(e => { %>
+        <div class="alert alert-error">❌ <%= e.msg %></div>
+      <% }) %>
+    <% } %>
+
+    <form method="POST" action="/auth/register" class="auth-form">
+      <div class="form-group">
+        <label>الاسم الكامل</label>
+        <input type="text" name="name" value="<%= old.name || '' %>" placeholder="محمد عبدالله" required>
+      </div>
+      <div class="form-group">
+        <label>البريد الإلكتروني</label>
+        <input type="email" name="email" value="<%= old.email || '' %>" placeholder="example@mail.com" required>
+      </div>
+      <div class="form-group">
+        <label>رقم الجوال (اختياري)</label>
+        <input type="tel" name="phone" value="<%= old.phone || '' %>" placeholder="05xxxxxxxx">
+      </div>
+      <div class="form-group">
+        <label>كلمة المرور</label>
+        <input type="password" name="password" placeholder="8 أحرف على الأقل" required>
+      </div>
+      <div class="form-group">
+        <label>تأكيد كلمة المرور</label>
+        <input type="password" name="confirm_password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">إنشاء الحساب</button>
+    </form>
+
+    <p class="auth-link">لديك حساب بالفعل؟ <a href="/auth/login">تسجيل الدخول</a></p>
+  </div>
+</div>

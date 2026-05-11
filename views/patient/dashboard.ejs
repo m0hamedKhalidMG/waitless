@@ -1,0 +1,125 @@
+<!-- Welcome Banner -->
+<div class="welcome-banner">
+  <h2>مرحباً، <%= user.name %> 👋</h2>
+  <p>إليك ملخص يومك الحالي</p>
+  <div class="welcome-date">📅 <%= today %></div>
+</div>
+
+<!-- Stats row -->
+<div class="stats-row">
+  <div class="stat-card stat-blue">
+    <div class="stat-icon-circle">📅</div>
+    <div class="stat-number"><%= upcomingAppointments.length %></div>
+    <div class="stat-label">مواعيد قادمة</div>
+  </div>
+  <% if (queueInfo) { %>
+  <div class="stat-card stat-green">
+    <div class="stat-icon-circle">📋</div>
+    <div class="stat-number">#<%= queueInfo.position %></div>
+    <div class="stat-label">موقعك في الطابور</div>
+  </div>
+  <% } %>
+  <div class="stat-card stat-purple">
+    <div class="stat-icon-circle">🔔</div>
+    <div class="stat-number"><%= unreadCount %></div>
+    <div class="stat-label">إشعارات جديدة</div>
+  </div>
+</div>
+
+<!-- Queue Banner -->
+<% if (queueInfo) { %>
+<div class="queue-banner">
+  <div class="queue-banner-icon">📋</div>
+  <div>
+    <strong>أنت في الطابور</strong> — <%= queueInfo.doctor_name %>
+    <br>موقعك: الرقم <strong class="pos-number">#<%= queueInfo.position %></strong>
+    <span class="status-badge status-<%= queueInfo.status %>"><%= statusLabel(queueInfo.status) %></span>
+  </div>
+  <a href="/patient/queue" class="btn btn-sm btn-outline">عرض التفاصيل</a>
+</div>
+<% } %>
+
+<!-- Upcoming appointments -->
+<div class="section">
+  <div class="section-header">
+    <h2><span class="title-icon">📅</span> المواعيد القادمة</h2>
+    <a href="/patient/appointments" class="btn btn-sm btn-outline">عرض الكل</a>
+  </div>
+
+  <% if (upcomingAppointments.length === 0) { %>
+    <div class="empty-state">
+      <div class="empty-icon">📅</div>
+      <p>لا توجد مواعيد قادمة</p>
+      <a href="/patient/book" class="btn btn-primary">حجز موعد جديد</a>
+    </div>
+  <% } else { %>
+    <div class="appointments-list">
+      <% upcomingAppointments.forEach(appt => { %>
+        <div class="appt-card">
+          <div class="appt-date">
+            <div class="appt-day"><%= formatDate(appt.appointment_date) %></div>
+            <div class="appt-time"><%= appt.appointment_time %></div>
+          </div>
+          <div class="appt-info">
+            <div class="appt-doctor">👨‍⚕️ <%= appt.doctor_name %></div>
+            <div class="appt-specialty"><%= appt.specialty_name %></div>
+          </div>
+          <span class="status-badge status-<%= appt.status %>"><%= statusLabel(appt.status) %></span>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<!-- Recent Notifications -->
+<% if (recentNotifs && recentNotifs.length > 0) { %>
+<div class="section">
+  <div class="section-header">
+    <h2><span class="title-icon">🔔</span> آخر الإشعارات</h2>
+    <a href="/patient/notifications" class="btn btn-sm btn-outline">عرض الكل</a>
+  </div>
+  <div class="notifs-list">
+    <% recentNotifs.forEach(n => { %>
+      <div class="notif-item <%= n.is_read ? '' : 'unread' %>">
+        <div class="notif-icon"><%= notifIcon(n.type) %></div>
+        <div class="notif-content">
+          <div class="notif-title"><%= n.title %></div>
+          <div class="notif-msg"><%= n.message %></div>
+          <div class="notif-time"><%= timeAgo(n.created_at) %></div>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+</div>
+<% } %>
+
+<div class="quick-actions">
+  <a href="/patient/book"         class="action-card"><span class="action-icon">➕</span><span>حجز موعد</span></a>
+  <a href="/patient/queue"        class="action-card"><span class="action-icon">📋</span><span>الطابور</span></a>
+  <a href="/patient/waiting-list" class="action-card"><span class="action-icon">⏳</span><span>الانتظار</span></a>
+  <a href="/patient/notifications" class="action-card"><span class="action-icon">🔔</span><span>الإشعارات</span></a>
+</div>
+
+<%
+function statusLabel(s) {
+  const map = { scheduled:'مجدول', confirmed:'مؤكد', in_progress:'جاري الكشف', completed:'مكتمل', cancelled:'ملغى', no_show:'لم يحضر', waiting:'انتظار', called:'تم استدعاؤه' };
+  return map[s] || s;
+}
+function notifIcon(t) {
+  const m = { appointment_reminder:'⏰', slot_available:'🎉', queue_update:'📋', general:'📢' };
+  return m[t] || '🔔';
+}
+function formatDate(d) {
+  if (!d) return '';
+  const date = new Date(d + 'T00:00:00');
+  return date.toLocaleDateString('ar-SA', { weekday:'short', year:'numeric', month:'short', day:'numeric' });
+}
+function timeAgo(dt) {
+  const diff = Date.now() - new Date(dt).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'الآن';
+  if (m < 60) return 'منذ ' + m + ' دقيقة';
+  if (m < 1440) return 'منذ ' + Math.floor(m/60) + ' ساعة';
+  return 'منذ ' + Math.floor(m/1440) + ' يوم';
+}
+%>

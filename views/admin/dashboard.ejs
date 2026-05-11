@@ -1,0 +1,83 @@
+<!-- Welcome Banner -->
+<div class="welcome-banner">
+  <h2>مرحباً، <%= user.name %> 🏥</h2>
+  <p>لوحة تحكم النظام</p>
+  <div class="welcome-date">📅 <%= today %></div>
+</div>
+
+<!-- Stats row -->
+<div class="stats-row">
+  <div class="stat-card stat-blue">
+    <div class="stat-icon-circle">📋</div>
+    <div class="stat-number"><%= stats.totalToday %></div>
+    <div class="stat-label">مواعيد اليوم</div>
+  </div>
+  <div class="stat-card stat-green">
+    <div class="stat-icon-circle">✅</div>
+    <div class="stat-number"><%= stats.completed %></div>
+    <div class="stat-label">مكتملة</div>
+  </div>
+  <div class="stat-card stat-red">
+    <div class="stat-icon-circle">❌</div>
+    <div class="stat-number"><%= stats.noShow %></div>
+    <div class="stat-label">لم يحضر</div>
+  </div>
+  <div class="stat-card stat-yellow">
+    <div class="stat-icon-circle">🚫</div>
+    <div class="stat-number"><%= stats.cancelled %></div>
+    <div class="stat-label">ملغاة</div>
+  </div>
+  <div class="stat-card stat-purple">
+    <div class="stat-icon-circle">👨‍⚕️</div>
+    <div class="stat-number"><%= stats.totalDoctors %></div>
+    <div class="stat-label">أطباء نشطون</div>
+  </div>
+  <div class="stat-card stat-teal">
+    <div class="stat-icon-circle">👥</div>
+    <div class="stat-number"><%= stats.totalPatients %></div>
+    <div class="stat-label">المرضى المسجلون</div>
+  </div>
+</div>
+
+<% if (stats.waiting > 0) { %>
+<div class="alert alert-info" style="margin-bottom:16px">
+  ⏳ يوجد <strong><%= stats.waiting %></strong> مريض في قائمة الانتظار
+  <a href="/admin/waiting-list" style="margin-right:8px;font-weight:600">عرض القائمة</a>
+</div>
+<% } %>
+
+<!-- Doctors Queue Overview -->
+<div class="section">
+  <div class="section-header">
+    <h2><span class="title-icon">👨‍⚕️</span> حالة الأطباء اليوم — <%= today %></h2>
+    <a href="/admin/appointments" class="btn btn-sm btn-outline">كل المواعيد</a>
+  </div>
+
+  <div class="doctors-overview-grid">
+    <% doctorQueues.forEach(doc => { %>
+      <div class="doc-overview-card">
+        <div class="doc-avatar-sm"><%= doc.doctor_name.charAt(0) %></div>
+        <div class="doc-ov-info">
+          <div class="doc-ov-name"><%= doc.doctor_name %></div>
+          <div class="doc-ov-spec"><%= doc.specialty_name %></div>
+        </div>
+        <div class="doc-ov-stats">
+          <div><strong><%= doc.queue_count %></strong> إجمالي</div>
+          <div><strong><%= doc.completed %></strong> مكتمل</div>
+        </div>
+      </div>
+    <% }) %>
+
+    <% if (doctorQueues.length === 0) { %>
+      <p class="hint">لا يوجد أطباء</p>
+    <% } %>
+  </div>
+</div>
+
+<!-- Quick links -->
+<div class="quick-actions">
+  <a href="/admin/doctors"      class="action-card"><span class="action-icon">👨‍⚕️</span><span>إدارة الأطباء</span></a>
+  <a href="/admin/appointments" class="action-card"><span class="action-icon">📅</span><span>المواعيد</span></a>
+  <a href="/admin/waiting-list" class="action-card"><span class="action-icon">⏳</span><span>قائمة الانتظار</span></a>
+  <a href="/admin/reports"      class="action-card"><span class="action-icon">📊</span><span>التقارير</span></a>
+</div>

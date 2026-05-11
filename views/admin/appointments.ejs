@@ -1,0 +1,80 @@
+<!-- Filters -->
+<div class="section" style="margin-bottom:24px">
+  <form method="GET" action="/admin/appointments" class="filter-form">
+    <div class="form-group">
+      <label>📅 التاريخ</label>
+      <input type="date" name="date" value="<%= filters.date || '' %>">
+    </div>
+    <div class="form-group">
+      <label>👨‍⚕️ الطبيب</label>
+      <select name="doctor_id">
+        <option value="">الكل</option>
+        <% doctors.forEach(d => { %>
+          <option value="<%= d.id %>" <%= filters.doctor_id == d.id ? 'selected' : '' %>><%= d.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>📊 الحالة</label>
+      <select name="status">
+        <option value="">الكل</option>
+        <option value="scheduled"   <%= filters.status === 'scheduled'   ? 'selected' : '' %>>مجدول</option>
+        <option value="confirmed"   <%= filters.status === 'confirmed'   ? 'selected' : '' %>>مؤكد</option>
+        <option value="completed"   <%= filters.status === 'completed'   ? 'selected' : '' %>>مكتمل</option>
+        <option value="cancelled"   <%= filters.status === 'cancelled'   ? 'selected' : '' %>>ملغى</option>
+        <option value="no_show"     <%= filters.status === 'no_show'     ? 'selected' : '' %>>لم يحضر</option>
+      </select>
+    </div>
+    <button class="btn btn-primary">🔍 بحث</button>
+    <a href="/admin/appointments" class="btn btn-outline">إعادة تعيين</a>
+  </form>
+</div>
+
+<div class="section-header">
+  <span><strong><%= appointments.length %></strong> موعد</span>
+</div>
+
+<% if (appointments.length === 0) { %>
+  <div class="empty-state"><div class="empty-icon">📅</div><p>لا توجد مواعيد</p></div>
+<% } else { %>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>التاريخ</th>
+          <th>الوقت</th>
+          <th>المريض</th>
+          <th>الطبيب</th>
+          <th>التخصص</th>
+          <th>الحالة</th>
+          <th>إجراءات</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% appointments.forEach(a => { %>
+          <tr>
+            <td><%= a.appointment_date %></td>
+            <td><%= a.appointment_time %></td>
+            <td><%= a.patient_name %></td>
+            <td><%= a.doctor_name %></td>
+            <td><%= a.specialty_name %></td>
+            <td><span class="status-badge status-<%= a.status %>"><%= statusLabel(a.status) %></span></td>
+            <td>
+              <% if (['scheduled','confirmed'].includes(a.status)) { %>
+                <form method="POST" action="/admin/appointments/<%= a.id %>/cancel" onsubmit="return confirm('إلغاء الموعد؟')">
+                  <button class="btn btn-danger btn-xs">❌ إلغاء</button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<%
+function statusLabel(s) {
+  return { scheduled:'مجدول', confirmed:'مؤكد', in_progress:'جاري', completed:'مكتمل', cancelled:'ملغى', no_show:'لم يحضر' }[s] || s;
+}
+%>

@@ -1,0 +1,85 @@
+<!-- Current waiting list entries -->
+<% if (myWaiting.length > 0) { %>
+<div class="section">
+  <div class="section-header">
+    <h2><span class="title-icon">📋</span> طلباتي الحالية</h2>
+  </div>
+  <div class="waiting-list">
+    <% myWaiting.forEach(entry => { %>
+      <div class="waiting-card <%= entry.status === 'notified' ? 'notified' : '' %>">
+        <div class="waiting-info">
+          <div class="waiting-doctor">👨‍⚕️ <%= entry.doctor_name %></div>
+          <div class="waiting-spec"><%= entry.specialty_name %></div>
+          <div class="waiting-dates">
+            من: <%= entry.preferred_date_from %> إلى: <%= entry.preferred_date_to %>
+          </div>
+          <span class="status-badge status-<%= entry.status %>"><%= statusLabel(entry.status) %></span>
+        </div>
+
+        <% if (entry.status === 'notified') { %>
+          <div class="offer-box">
+            <div class="offer-title">🎉 عرض موعد متاح!</div>
+            <div class="offer-expires">تنتهي الصلاحية: <%= entry.expires_at %></div>
+            <div class="offer-actions">
+              <form method="POST" action="/patient/waiting-list/<%= entry.id %>/confirm" style="display:inline">
+                <button class="btn btn-success btn-sm">✅ تأكيد</button>
+              </form>
+              <form method="POST" action="/patient/waiting-list/<%= entry.id %>/decline" style="display:inline;margin-right:8px" onsubmit="return confirm('هل تريد رفض هذا العرض؟')">
+                <button class="btn btn-danger btn-sm">❌ رفض</button>
+              </form>
+            </div>
+          </div>
+        <% } else { %>
+          <form method="POST" action="/patient/waiting-list/<%= entry.id %>/cancel" onsubmit="return confirm('هل تريد إلغاء طلب الانتظار؟')">
+            <button class="btn btn-outline btn-sm">إلغاء الطلب</button>
+          </form>
+        <% } %>
+      </div>
+    <% }) %>
+  </div>
+</div>
+<% } %>
+
+<!-- Add to waiting list -->
+<div class="section">
+  <div class="section-header">
+    <h2><span class="title-icon">⏳</span> الانضمام لقائمة الانتظار</h2>
+  </div>
+  <p class="hint">إذا لم تجد موعداً مناسباً، يمكنك الانضمام لقائمة الانتظار وسنرسل لك إشعاراً فور توفر موعد.</p>
+
+  <form method="POST" action="/patient/waiting-list" class="form-card">
+    <div class="form-group">
+      <label>الطبيب</label>
+      <select name="doctor_id" required id="doctor-select">
+        <option value="">-- اختر الطبيب --</option>
+        <% specialties.forEach(s => { %>
+          <optgroup label="<%= s.name %>">
+            <% (s.doctors || []).forEach(d => { %>
+              <option value="<%= d.id %>"><%= d.name %></option>
+            <% }) %>
+          </optgroup>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>من تاريخ</label>
+        <input type="date" name="date_from" required min="<%= today %>">
+      </div>
+      <div class="form-group">
+        <label>إلى تاريخ</label>
+        <input type="date" name="date_to" required min="<%= today %>">
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">⏳ الانضمام للقائمة</button>
+  </form>
+</div>
+
+<%
+function statusLabel(s) {
+  const map = { waiting:'في الانتظار', notified:'عرض متاح!', confirmed:'مؤكد', expired:'منتهي', cancelled:'ملغى' };
+  return map[s] || s;
+}
+%>

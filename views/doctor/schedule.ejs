@@ -1,0 +1,78 @@
+<div class="welcome-banner">
+  <h2>📆 جدولي الأسبوعي</h2>
+  <p>حدد أوقات العمل ومدة كل موعد</p>
+</div>
+
+<div class="schedule-grid">
+  <% for (let day = 0; day <= 6; day++) { %>
+    <% const sched = schedules.find(s => s.day_of_week === day); %>
+    <div class="schedule-day-card">
+      <div class="day-name"><%= dayNames[day] %></div>
+      <% if (sched) { %>
+        <div class="sched-time">🕐 <%= sched.start_time %> — <%= sched.end_time %></div>
+        <div class="sched-duration">⏱ كل <%= sched.slot_duration_minutes %> دقيقة</div>
+      <% } else { %>
+        <div class="sched-off">🔴 إجازة</div>
+      <% } %>
+
+      <details class="sched-edit">
+        <summary class="btn btn-outline btn-xs">✏️ تعديل</summary>
+        <form method="POST" action="/doctor/schedule" class="sched-form">
+          <input type="hidden" name="day_of_week" value="<%= day %>">
+          <div class="form-group">
+            <label>من</label>
+            <input type="time" name="start_time" value="<%= sched ? sched.start_time : '08:00' %>">
+          </div>
+          <div class="form-group">
+            <label>إلى</label>
+            <input type="time" name="end_time" value="<%= sched ? sched.end_time : '16:00' %>">
+          </div>
+          <div class="form-group">
+            <label>مدة الموعد (دقيقة)</label>
+            <input type="number" name="slot_duration" value="<%= sched ? sched.slot_duration_minutes : 15 %>" min="5" max="60">
+          </div>
+          <button class="btn btn-primary btn-sm w-full">💾 حفظ</button>
+          <% if (sched) { %>
+            <button class="btn btn-danger btn-sm w-full" name="remove" value="1">🗑 حذف</button>
+          <% } %>
+        </form>
+      </details>
+    </div>
+  <% } %>
+</div>
+
+<!-- Blocked dates -->
+<div class="section">
+  <div class="section-header">
+    <h2><span class="title-icon">🚫</span> أيام الإجازات والحظر</h2>
+  </div>
+  <div class="form-card">
+    <form method="POST" action="/doctor/schedule/block" class="form-inline">
+      <div class="form-group">
+        <label>التاريخ</label>
+        <input type="date" name="blocked_date" required min="<%= today %>">
+      </div>
+      <div class="form-group">
+        <label>السبب (اختياري)</label>
+        <input type="text" name="reason" placeholder="إجازة، تدريب...">
+      </div>
+      <button class="btn btn-warning">🔒 حظر اليوم</button>
+    </form>
+  </div>
+
+  <% if (blockedDates.length > 0) { %>
+    <div class="blocked-list">
+      <% blockedDates.forEach(b => { %>
+        <div class="blocked-item">
+          <span>📅 <%= b.blocked_date %></span>
+          <% if (b.reason) { %><span class="blocked-reason"><%= b.reason %></span><% } %>
+          <form method="POST" action="/doctor/schedule/unblock/<%= b.id %>" style="display:inline;margin-right:auto">
+            <button class="btn btn-outline btn-xs">🔓 إلغاء الحظر</button>
+          </form>
+        </div>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <p class="hint" style="margin-top:16px">لا توجد أيام محظورة</p>
+  <% } %>
+</div>
