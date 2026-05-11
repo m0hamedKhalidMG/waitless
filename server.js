@@ -129,15 +129,15 @@ app.use((err, req, res, next) => {
 });
 
 // ── Seed database on startup ─────────────────────────────
-seed();
+const seedPromise = seed().catch(err => console.error('Seed error:', err.message));
 
 // ── Background tasks ─────────────────────────────────────
-setInterval(() => {
-  try { processExpiredOffers(); } catch (e) { console.error('processExpiredOffers error:', e.message); }
+setInterval(async () => {
+  try { await processExpiredOffers(); } catch (e) { console.error('processExpiredOffers error:', e.message); }
 }, 5 * 60 * 1000);   // every 5 minutes
 
-setInterval(() => {
-  try { sendAppointmentReminders(); } catch (e) { console.error('sendAppointmentReminders error:', e.message); }
+setInterval(async () => {
+  try { await sendAppointmentReminders(); } catch (e) { console.error('sendAppointmentReminders error:', e.message); }
 }, 60 * 1000);        // every 1 minute
 
 // ── Export for serverless (Vercel) ───────────────────────
@@ -145,10 +145,13 @@ module.exports = app;
 
 // ── Start server locally ─────────────────────────────────
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`\n✅ Wait Less server running at http://localhost:${PORT}`);
-    console.log(`   Admin:   admin@waitless.com  / Admin@12345`);
-    console.log(`   Doctor:  ahmed@waitless.com  / Doctor@123`);
-    console.log(`   Patient: mohammed@example.com/ Patient@123\n`);
-  });
+  (async () => {
+    await seedPromise;
+    app.listen(PORT, () => {
+      console.log(`\n✅ Wait Less server running at http://localhost:${PORT}`);
+      console.log(`   Admin:   admin@waitless.com  / Admin@12345`);
+      console.log(`   Doctor:  ahmed@waitless.com  / Doctor@123`);
+      console.log(`   Patient: mohammed@example.com/ Patient@123\n`);
+    });
+  })();
 }

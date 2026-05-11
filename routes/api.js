@@ -12,23 +12,23 @@ function localDate() {
 }
 
 // GET /api/notifications/unread — returns unread count (polling)
-router.get('/notifications/unread', requireAuth, (req, res) => {
-  const count = countUnread(req.session.user.id);
+router.get('/notifications/unread', requireAuth, async (req, res) => {
+  const count = await countUnread(req.session.user.id);
   res.json({ count });
 });
 
 // GET /api/notifications — returns last 10 unread notifications
-router.get('/notifications', requireAuth, (req, res) => {
-  const notifs = getNotifications(req.session.user.id, 10, 0);
+router.get('/notifications', requireAuth, async (req, res) => {
+  const notifs = await getNotifications(req.session.user.id, 10, 0);
   res.json({ notifications: notifs });
 });
 
 // GET /api/queue/status — returns patient's current queue position and wait time
-router.get('/queue/status', requireAuth, (req, res) => {
+router.get('/queue/status', requireAuth, async (req, res) => {
   const userId = req.session.user.id;
   const today = localDate();
 
-  const entry = db.prepare(`
+  const entry = await db.prepare(`
     SELECT q.position, q.status, q.doctor_id, u.name as doctor_name
     FROM queue_entries q
     JOIN doctors d ON q.doctor_id = d.id
@@ -39,7 +39,7 @@ router.get('/queue/status', requireAuth, (req, res) => {
 
   if (!entry) return res.json({ inQueue: false });
 
-  const waitMinutes = estimateWaitTime(entry.doctor_id, entry.position);
+  const waitMinutes = await estimateWaitTime(entry.doctor_id, entry.position);
   res.json({
     inQueue: true,
     position: entry.position,
@@ -50,13 +50,13 @@ router.get('/queue/status', requireAuth, (req, res) => {
 });
 
 // GET /api/doctor/queue — returns doctor's queue (for doctor dashboard polling)
-router.get('/doctor/queue', requireAuth, (req, res) => {
+router.get('/doctor/queue', requireAuth, async (req, res) => {
   if (req.session.user.role !== 'doctor') return res.status(403).json({ error: 'Forbidden' });
-  const doctorRow = db.prepare('SELECT id FROM doctors WHERE user_id = ?').get(req.session.user.id);
+  const doctorRow = await db.prepare('SELECT id FROM doctors WHERE user_id = ?').get(req.session.user.id);
   if (!doctorRow) return res.status(404).json({ error: 'Not found' });
 
   const date = req.query.date || localDate();
-  const queue = getDoctorQueue(doctorRow.id, date);
+  const queue = await getDoctorQueue(doctorRow.id, date);
   res.json({ queue });
 });
 

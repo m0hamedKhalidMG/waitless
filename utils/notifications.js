@@ -4,8 +4,8 @@ const db = require('../db/connection');
 /**
  * Create a notification for a user.
  */
-function createNotification({ userId, title, message, type, relatedAppointmentId = null, relatedWaitingId = null }) {
-  db.prepare(`
+async function createNotification({ userId, title, message, type, relatedAppointmentId = null, relatedWaitingId = null }) {
+  await db.prepare(`
     INSERT INTO notifications(user_id, title, message, type, related_appointment_id, related_waiting_id)
     VALUES(?, ?, ?, ?, ?, ?)
   `).run(userId, title, message, type, relatedAppointmentId, relatedWaitingId);
@@ -14,29 +14,30 @@ function createNotification({ userId, title, message, type, relatedAppointmentId
 /**
  * Count unread notifications for a user.
  */
-function countUnread(userId) {
-  return db.prepare('SELECT COUNT(*) as cnt FROM notifications WHERE user_id = ? AND is_read = 0').get(userId).cnt;
+async function countUnread(userId) {
+  const row = await db.prepare('SELECT COUNT(*) as cnt FROM notifications WHERE user_id = ? AND is_read = 0').get(userId);
+  return row.cnt;
 }
 
 /**
  * Mark all notifications as read for a user.
  */
-function markAllRead(userId) {
-  db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0').run(userId);
+async function markAllRead(userId) {
+  await db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0').run(userId);
 }
 
 /**
  * Mark a single notification as read.
  */
-function markRead(id, userId) {
-  db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?').run(id, userId);
+async function markRead(id, userId) {
+  await db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?').run(id, userId);
 }
 
 /**
  * Get paginated notifications for a user.
  */
-function getNotifications(userId, limit = 30, offset = 0) {
-  return db.prepare(`
+async function getNotifications(userId, limit = 30, offset = 0) {
+  return await db.prepare(`
     SELECT n.*, a.appointment_date, a.appointment_time, a.doctor_id,
            u.name as doctor_user_name, s.name as specialty_name,
            wl.status as waiting_status
@@ -56,7 +57,7 @@ function getNotifications(userId, limit = 30, offset = 0) {
  * Send appointment reminder notifications (called by background task).
  * Finds appointments starting in 30 minutes and notifies patients if not already notified.
  */
-function sendAppointmentReminders() {
+async function sendAppointmentReminders() {
   const now = new Date();
   const soon = new Date(now.getTime() + 30 * 60 * 1000);
 
@@ -65,7 +66,7 @@ function sendAppointmentReminders() {
   const targetTime = soon.toTimeString().slice(0, 5);
 
   // Find appointments in ~30min window (within ±5 min tolerance)
-  const appointments = db.prepare(`
+  const appointments = await db.prepare(`
     SELECT a.*, u.name as patient_name, du.name as doctor_name
     FROM appointments a
     JOIN users u ON a.patient_id = u.id
@@ -78,13 +79,13 @@ function sendAppointmentReminders() {
 
   for (const appt of appointments) {
     // Check if reminder already sent
-    const already = db.prepare(`
+    const already = await db.prepare(`
       SELECT id FROM notifications
       WHERE user_id = ? AND related_appointment_id = ? AND type = 'appointment_reminder'
     `).get(appt.patient_id, appt.id);
 
     if (!already) {
-      createNotification({
+      await createNotification({
         userId: appt.patient_id,
         title: 'تذكير بموعدك',
         message: `موعدك مع ${appt.doctor_name} بعد 30 دقيقة (${appt.appointment_time}).`,

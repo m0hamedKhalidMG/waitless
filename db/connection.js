@@ -1,26 +1,46 @@
 'use strict';
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
+const { createClient } = require('@libsql/client');
 
-const DB_PATH = path.join(__dirname, '..', 'data', 'waitless.db');
+const url = process.env.TURSO_DATABASE_URL || 'libsql://waitless-labuser15.aws-ap-south-1.turso.io';
+const authToken = process.env.TURSO_AUTH_TOKEN;
 
-// Ensure data directory exists
-const dataDir = path.dirname(DB_PATH);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+const client = createClient({ url, authToken });
+
+function rowToObject(columns, row) {
+  const obj = {};
+  for (let i = 0; i < columns.length; i++) {
+    obj[columns[i]] = row[i];
+  }
+  return obj;
 }
 
-const db = new Database(DB_PATH);
-
-// Performance settings
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-db.pragma('synchronous = NORMAL');
-db.pragma('cache_size = -8000');   // 8 MB cache
-
-// Run schema on first use
-const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
-db.exec(schema);
+const db = {
+  client,
+  prepare(sql) {
+    return {
+      async get(...args) {
+        const rs = await client.execute({ sql, args });
+        if (!rs.rows || rs.rows.length === 0) return undefined;
+        return rowToObject(rs.columns, rs.rows[0]);
+      },
+      async all(...args) {
+        const rs = await client.execute({ sql, args });
+        if (!rs.rows) return [];
+        return rs.rows.map(r => rowToObject(rs.columns, r));
+      },
+      async run(...args) {
+        const rs = await client.execute({ sql, args });
+        return { lastInsertRowid: rs.lastInsertRowid, changes: rs.rowsAffected };
+      }
+    };
+  },
+  async exec(sql) {
+    await client.execute(sql);
+  },
+  async batch(stmts) {
+    // stmts: array of { sql, args }
+    return await client.batch(stmts);
+  }
+};
 
 module.exports = db;

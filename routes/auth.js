@@ -22,7 +22,7 @@ router.post('/login', [
   }
 
   const { email, password } = req.body;
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  const user = await db.prepare('SELECT * FROM users WHERE email = ?').get(email);
 
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
     return res.render('auth/login', {
@@ -65,7 +65,7 @@ router.post('/register', [
 
   const { name, email, phone, password } = req.body;
 
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  const existing = await db.prepare('SELECT id FROM users WHERE email = ?').get(email);
   if (existing) {
     return res.render('auth/register', {
       title: 'إنشاء حساب',
@@ -75,7 +75,7 @@ router.post('/register', [
   }
 
   const hash = await bcrypt.hash(password, 12);
-  const result = db.prepare('INSERT INTO users(name, email, password_hash, phone, role) VALUES(?,?,?,?,?)').run(name, email, hash, phone || null, 'patient');
+  const result = await db.prepare('INSERT INTO users(name, email, password_hash, phone, role) VALUES(?,?,?,?,?)').run(name, email, hash, phone || null, 'patient');
 
   req.session.regenerate((err) => {
     if (err) return res.status(500).send('خطأ في الجلسة');

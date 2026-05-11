@@ -4,8 +4,8 @@ const db = require('../db/connection');
 /**
  * Get the current position of a patient in today's queue for a specific doctor.
  */
-function getQueuePosition(patientId, doctorId, date) {
-  const entry = db.prepare(`
+async function getQueuePosition(patientId, doctorId, date) {
+  const entry = await db.prepare(`
     SELECT position, status FROM queue_entries
     WHERE patient_id = ? AND doctor_id = ? AND date = ? AND status IN ('waiting','called')
   `).get(patientId, doctorId, date);
@@ -16,13 +16,13 @@ function getQueuePosition(patientId, doctorId, date) {
  * Get historical statistics for a doctor over the last N days.
  * Returns: avg actual consultation duration, delay factor, no-show rate.
  */
-function getHistoricalStats(doctorId, days = 30) {
+async function getHistoricalStats(doctorId, days = 30) {
   const since = new Date();
   since.setDate(since.getDate() - days);
   const sinceDate = since.getFullYear() + '-' + String(since.getMonth()+1).padStart(2,'0') + '-' + String(since.getDate()).padStart(2,'0');
 
   // Avg actual consultation time in minutes (from completed queue entries)
-  const durationRow = db.prepare(`
+  const durationRow = await db.prepare(`
     SELECT AVG(
       (strftime('%s', completed_time) - strftime('%s', called_time)) / 60.0
     ) as avg_actual
@@ -32,7 +32,7 @@ function getHistoricalStats(doctorId, days = 30) {
   `).get(doctorId, sinceDate);
 
   // Doctor's configured avg consultation minutes
-  const doctorRow = db.prepare('SELECT avg_consultation_minutes FROM doctors WHERE id = ?').get(doctorId);
+  const doctorRow = await db.prepare('SELECT avg_consultation_minutes FROM doctors WHERE id = ?').get(doctorId);
   const configuredAvg = doctorRow ? doctorRow.avg_consultation_minutes : 15;
 
   const avgActual = durationRow.avg_actual || configuredAvg;
@@ -41,7 +41,7 @@ function getHistoricalStats(doctorId, days = 30) {
   const delayFactor = avgActual / configuredAvg;
 
   // No-show rate: no_show / (completed + no_show)
-  const noShowRow = db.prepare(`
+  const noShowRow = await db.prepare(`
     SELECT
       SUM(CASE WHEN status = 'no_show' THEN 1 ELSE 0 END) as no_shows,
       SUM(CASE WHEN status IN ('completed','no_show') THEN 1 ELSE 0 END) as total
@@ -62,9 +62,9 @@ function getHistoricalStats(doctorId, days = 30) {
 /**
  * Estimate wait time in minutes for a patient at a given queue position.
  */
-function estimateWaitTime(doctorId, position) {
+async function estimateWaitTime(doctorId, position) {
   if (!position || position <= 0) return 0;
-  const { avgActualMinutes, delayFactor, noShowRate } = getHistoricalStats(doctorId);
+  const { avgActualMinutes, delayFactor, noShowRate } = await getHistoricalStats(doctorId);
   // Effective position reduced by expected no-shows
   const effectivePosition = Math.max(1, Math.round(position * (1 - noShowRate)));
   return Math.round(effectivePosition * avgActualMinutes * delayFactor);
@@ -73,8 +73,8 @@ function estimateWaitTime(doctorId, position) {
 /**
  * Get full queue for a doctor on a specific date.
  */
-function getDoctorQueue(doctorId, date) {
-  return db.prepare(`
+async function getDoctorQueue(doctorId, date) {
+  return await db.prepare(`
     SELECT q.*, u.name as patient_name, u.phone as patient_phone,
            a.appointment_time, a.notes
     FROM queue_entries q
@@ -88,37 +88,40 @@ function getDoctorQueue(doctorId, date) {
 /**
  * Recalculate and compact queue positions after a status change.
  */
-function reorderQueue(doctorId, date) {
-  const entries = db.prepare(`
+async function reorderQueue(doctorId, date) {
+  const entries = await db.prepare(`
     SELECT id FROM queue_entries
     WHERE doctor_id = ? AND date = ? AND status = 'waiting'
     ORDER BY position
   `).all(doctorId, date);
 
-  const update = db.prepare('UPDATE queue_entries SET position = ? WHERE id = ?');
-  const reorder = db.transaction(() => {
-    entries.forEach((e, i) => update.run(i + 1, e.id));
-  });
-  reorder();
+  const stmts = entries.map((e, i) => ({
+    sql: 'UPDATE queue_entries SET position = ? WHERE id = ?',
+    args: [i + 1, e.id]
+  }));
+  if (stmts.length > 0) {
+    await db.batch(stmts);
+  }
 }
 
 /**
  * Check in a patient: create a queue entry or confirm their slot.
  */
-function checkIn(patientId, doctorId, appointmentId, date) {
+async function checkIn(patientId, doctorId, appointmentId, date) {
   // Determine next position
-  const maxPos = db.prepare(`
+  const maxPosRow = await db.prepare(`
     SELECT COALESCE(MAX(position), 0) as mx FROM queue_entries
     WHERE doctor_id = ? AND date = ?
-  `).get(doctorId, date).mx;
+  `).get(doctorId, date);
+  const maxPos = maxPosRow.mx;
 
-  const existing = db.prepare(`
+  const existing = await db.prepare(`
     SELECT id FROM queue_entries WHERE appointment_id = ? AND date = ?
   `).get(appointmentId, date);
 
   if (existing) return existing.id;
 
-  const { lastInsertRowid } = db.prepare(`
+  const { lastInsertRowid } = await db.prepare(`
     INSERT INTO queue_entries(patient_id, doctor_id, appointment_id, check_in_time, position, status, date)
     VALUES(?, ?, ?, datetime('now'), ?, 'waiting', ?)
   `).run(patientId, doctorId, appointmentId, maxPos + 1, date);

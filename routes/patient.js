@@ -45,11 +45,11 @@ function normalizeDate(dateStr) {
 }
 
 // Dashboard
-router.get('/dashboard', guard, (req, res) => {
+router.get('/dashboard', guard, async (req, res) => {
   const userId = req.session.user.id;
   const today = localDate();
 
-  const upcomingAppointments = db.prepare(`
+  const upcomingAppointments = await db.prepare(`
     SELECT a.*, u.name as doctor_name, s.name as specialty_name, d.id as doc_id
     FROM appointments a
     JOIN doctors d ON a.doctor_id = d.id
@@ -60,7 +60,7 @@ router.get('/dashboard', guard, (req, res) => {
     LIMIT 5
   `).all(userId, today);
 
-  const queueInfo = db.prepare(`
+  const queueInfo = await db.prepare(`
     SELECT q.position, q.status, q.doctor_id, u.name as doctor_name
     FROM queue_entries q
     JOIN doctors d ON q.doctor_id = d.id
@@ -69,8 +69,8 @@ router.get('/dashboard', guard, (req, res) => {
     LIMIT 1
   `).get(userId, today);
 
-  const unreadCount = countUnread(userId);
-  const recentNotifs = getNotifications(userId, 5, 0);
+  const unreadCount = await countUnread(userId);
+  const recentNotifs = await getNotifications(userId, 5, 0);
 
   res.render('patient/dashboard', {
     title: 'لوحة المريض',
@@ -83,7 +83,7 @@ router.get('/dashboard', guard, (req, res) => {
 });
 
 // List appointments
-router.get('/appointments', guard, (req, res) => {
+router.get('/appointments', guard, async (req, res) => {
   const userId = req.session.user.id;
   const filter = req.query.filter || 'upcoming';
   const today = localDate();
@@ -94,7 +94,7 @@ router.get('/appointments', guard, (req, res) => {
   else if (filter === 'past') { whereClause = `AND (a.appointment_date < ? OR a.status IN ('completed','no_show'))`; filterParams.push(today); }
   else if (filter === 'cancelled') { whereClause = `AND a.status = 'cancelled'`; }
 
-  const appointments = db.prepare(`
+  const appointments = await db.prepare(`
     SELECT a.*, u.name as doctor_name, s.name as specialty_name
     FROM appointments a
     JOIN doctors d ON a.doctor_id = d.id
@@ -108,9 +108,9 @@ router.get('/appointments', guard, (req, res) => {
 });
 
 // Cancel appointment
-router.post('/appointments/:id/cancel', guard, (req, res) => {
+router.post('/appointments/:id/cancel', guard, async (req, res) => {
   const userId = req.session.user.id;
-  const appt = db.prepare('SELECT * FROM appointments WHERE id = ? AND patient_id = ?')
+  const appt = await db.prepare('SELECT * FROM appointments WHERE id = ? AND patient_id = ?')
     .get(req.params.id, userId);
 
   if (!appt || !['scheduled', 'confirmed'].includes(appt.status)) {
@@ -118,16 +118,16 @@ router.post('/appointments/:id/cancel', guard, (req, res) => {
     return res.redirect('/patient/appointments');
   }
 
-  db.prepare(`UPDATE appointments SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?`).run(appt.id);
-  onCancellation(appt.id);
+  await db.prepare(`UPDATE appointments SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?`).run(appt.id);
+  await onCancellation(appt.id);
 
   req.session.flash = { success: 'تم إلغاء الموعد بنجاح.' };
   res.redirect('/patient/appointments');
 });
 
 // Book appointment — step 1: choose specialty
-router.get('/book', guard, (req, res) => {
-  const specialties = db.prepare(`
+router.get('/book', guard, async (req, res) => {
+  const specialties = await db.prepare(`
     SELECT s.*, COUNT(d.id) as doctor_count
     FROM specialties s
     LEFT JOIN doctors d ON d.specialty_id = s.id AND d.is_active = 1
@@ -139,14 +139,14 @@ router.get('/book', guard, (req, res) => {
 });
 
 // Book — step 2: choose doctor
-router.get('/book/doctors', guard, (req, res) => {
+router.get('/book/doctors', guard, async (req, res) => {
   const specialtyId = parseInt(req.query.specialty_id);
   if (!specialtyId) return res.redirect('/patient/book');
 
-  const specialty = db.prepare('SELECT * FROM specialties WHERE id = ?').get(specialtyId);
+  const specialty = await db.prepare('SELECT * FROM specialties WHERE id = ?').get(specialtyId);
   if (!specialty) return res.redirect('/patient/book');
 
-  const doctors = db.prepare(`
+  const doctors = await db.prepare(`
     SELECT d.id, d.avg_consultation_minutes, u.name, u.phone
     FROM doctors d
     JOIN users u ON d.user_id = u.id
@@ -158,11 +158,11 @@ router.get('/book/doctors', guard, (req, res) => {
 });
 
 // Book — step 3: choose slot
-router.get('/book/slots', guard, (req, res) => {
+router.get('/book/slots', guard, async (req, res) => {
   const doctorId = parseInt(req.query.doctor_id);
   if (!doctorId) return res.redirect('/patient/book');
 
-  const doctor = db.prepare(`
+  const doctor = await db.prepare(`
     SELECT d.id, d.avg_consultation_minutes, d.specialty_id, u.name, s.name as specialty_name
     FROM doctors d JOIN users u ON d.user_id = u.id JOIN specialties s ON d.specialty_id = s.id
     WHERE d.id = ? AND d.is_active = 1
@@ -178,11 +178,11 @@ router.get('/book/slots', guard, (req, res) => {
   const selectedDate = normalizeDate(rawDate);
   let slots = [];
   if (selectedDate && selectedDate >= today && selectedDate <= toDate) {
-    slots = getAvailableSlots(doctorId, selectedDate, selectedDate, 100);
+    slots = await getAvailableSlots(doctorId, selectedDate, selectedDate, 100);
   }
 
   // Fetch doctor working schedule days
-  const schedules = db.prepare('SELECT day_of_week, start_time, end_time FROM doctor_schedules WHERE doctor_id = ? ORDER BY day_of_week').all(doctorId);
+  const schedules = await db.prepare('SELECT day_of_week, start_time, end_time FROM doctor_schedules WHERE doctor_id = ? ORDER BY day_of_week').all(doctorId);
   const dayNames = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
   const workingDays = schedules.map(s => dayNames[s.day_of_week]);
 
@@ -194,7 +194,7 @@ router.post('/book/confirm', guard, [
   body('doctor_id').isInt(),
   body('date').isDate(),
   body('time').matches(/^\d{2}:\d{2}$/)
-], (req, res) => {
+], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     req.session.flash = { error: 'بيانات الحجز غير صحيحة.' };
@@ -205,14 +205,14 @@ router.post('/book/confirm', guard, [
   const { doctor_id, date, time, notes } = req.body;
   const docId = parseInt(doctor_id);
 
-  const doctor = db.prepare(`SELECT d.*, u.name as doctor_name FROM doctors d JOIN users u ON d.user_id = u.id WHERE d.id = ? AND d.is_active = 1`).get(docId);
+  const doctor = await db.prepare(`SELECT d.*, u.name as doctor_name FROM doctors d JOIN users u ON d.user_id = u.id WHERE d.id = ? AND d.is_active = 1`).get(docId);
   if (!doctor) {
     req.session.flash = { error: 'الطبيب غير موجود.' };
     return res.redirect('/patient/book');
   }
 
   // Verify slot is still free
-  const conflict = db.prepare(`
+  const conflict = await db.prepare(`
     SELECT id FROM appointments
     WHERE doctor_id = ? AND appointment_date = ? AND appointment_time = ? AND status NOT IN ('cancelled','no_show')
   `).get(docId, date, time);
@@ -222,7 +222,7 @@ router.post('/book/confirm', guard, [
   }
 
   // Check patient doesn't already have an appointment with this doctor on same day
-  const sameDay = db.prepare(`
+  const sameDay = await db.prepare(`
     SELECT id FROM appointments
     WHERE patient_id = ? AND doctor_id = ? AND appointment_date = ? AND status NOT IN ('cancelled','no_show')
   `).get(userId, docId, date);
@@ -234,7 +234,7 @@ router.post('/book/confirm', guard, [
   const endMins = timeToMinutes(time) + doctor.avg_consultation_minutes;
   const endTime = minutesToTime(endMins);
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO appointments(patient_id, doctor_id, appointment_date, appointment_time, end_time, status, notes)
     VALUES(?, ?, ?, ?, ?, 'scheduled', ?)
   `).run(userId, docId, date, time, endTime, notes || null);
@@ -244,16 +244,16 @@ router.post('/book/confirm', guard, [
 });
 
 // Join waiting list
-router.get('/waiting-list', guard, (req, res) => {
+router.get('/waiting-list', guard, async (req, res) => {
   const userId = req.session.user.id;
-  const specialties = db.prepare(`
+  const specialties = await db.prepare(`
     SELECT s.* FROM specialties s
     JOIN doctors d ON d.specialty_id = s.id AND d.is_active = 1
     GROUP BY s.id
   `).all();
 
   // Attach doctors list to each specialty
-  const allDoctors = db.prepare(`
+  const allDoctors = await db.prepare(`
     SELECT d.id, u.name, d.specialty_id
     FROM doctors d
     JOIN users u ON d.user_id = u.id
@@ -264,7 +264,7 @@ router.get('/waiting-list', guard, (req, res) => {
     s.doctors = allDoctors.filter(d => d.specialty_id === s.id);
   });
 
-  const myWaiting = db.prepare(`
+  const myWaiting = await db.prepare(`
     SELECT wl.*, u.name as doctor_name, s.name as specialty_name
     FROM waiting_list wl
     JOIN doctors d ON wl.doctor_id = d.id
@@ -284,7 +284,7 @@ router.post('/waiting-list', guard, [
     if (val < req.body.date_from) throw new Error('تاريخ النهاية يجب أن يكون بعد تاريخ البداية');
     return true;
   })
-], (req, res) => {
+], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     req.session.flash = { error: 'يرجى إدخال البيانات بشكل صحيح.' };
@@ -294,7 +294,7 @@ router.post('/waiting-list', guard, [
   const userId = req.session.user.id;
   const { doctor_id, date_from, date_to } = req.body;
 
-  const existing = db.prepare(`
+  const existing = await db.prepare(`
     SELECT id FROM waiting_list WHERE patient_id = ? AND doctor_id = ? AND status IN ('waiting','notified')
   `).get(userId, parseInt(doctor_id));
 
@@ -303,7 +303,7 @@ router.post('/waiting-list', guard, [
     return res.redirect('/patient/waiting-list');
   }
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO waiting_list(patient_id, doctor_id, preferred_date_from, preferred_date_to)
     VALUES(?, ?, ?, ?)
   `).run(userId, parseInt(doctor_id), date_from, date_to);
@@ -313,18 +313,18 @@ router.post('/waiting-list', guard, [
 });
 
 // Cancel waiting list entry
-router.post('/waiting-list/:id/cancel', guard, (req, res) => {
+router.post('/waiting-list/:id/cancel', guard, async (req, res) => {
   const userId = req.session.user.id;
-  db.prepare(`UPDATE waiting_list SET status = 'cancelled' WHERE id = ? AND patient_id = ?`)
+  await db.prepare(`UPDATE waiting_list SET status = 'cancelled' WHERE id = ? AND patient_id = ?`)
     .run(req.params.id, userId);
   req.session.flash = { success: 'تم إلغاء طلب الانتظار.' };
   res.redirect('/patient/waiting-list');
 });
 
 // Confirm waiting list offer
-router.post('/waiting-list/:id/confirm', guard, (req, res) => {
+router.post('/waiting-list/:id/confirm', guard, async (req, res) => {
   const userId = req.session.user.id;
-  const entry = db.prepare(`
+  const entry = await db.prepare(`
     SELECT * FROM waiting_list WHERE id = ? AND patient_id = ? AND status = 'notified'
   `).get(req.params.id, userId);
 
@@ -339,8 +339,8 @@ router.post('/waiting-list/:id/confirm', guard, (req, res) => {
     return res.redirect('/patient/notifications');
   }
 
-  db.prepare(`UPDATE waiting_list SET status = 'confirmed' WHERE id = ?`).run(entry.id);
-  db.prepare(`UPDATE appointments SET status = 'confirmed', updated_at = datetime('now') WHERE id = ?`)
+  await db.prepare(`UPDATE waiting_list SET status = 'confirmed' WHERE id = ?`).run(entry.id);
+  await db.prepare(`UPDATE appointments SET status = 'confirmed', updated_at = datetime('now') WHERE id = ?`)
     .run(entry.offered_appointment_id);
 
   req.session.flash = { success: 'تم تأكيد الموعد بنجاح!' };
@@ -348,24 +348,24 @@ router.post('/waiting-list/:id/confirm', guard, (req, res) => {
 });
 
 // Decline waiting list offer
-router.post('/waiting-list/:id/decline', guard, (req, res) => {
+router.post('/waiting-list/:id/decline', guard, async (req, res) => {
   const userId = req.session.user.id;
-  const entry = db.prepare(`SELECT * FROM waiting_list WHERE id = ? AND patient_id = ?`).get(req.params.id, userId);
+  const entry = await db.prepare(`SELECT * FROM waiting_list WHERE id = ? AND patient_id = ?`).get(req.params.id, userId);
   if (entry && entry.offered_appointment_id) {
-    db.prepare(`UPDATE waiting_list SET status = 'cancelled' WHERE id = ?`).run(entry.id);
+    await db.prepare(`UPDATE waiting_list SET status = 'cancelled' WHERE id = ?`).run(entry.id);
     // Trigger re-offer to next person
-    onCancellation(entry.offered_appointment_id);
+    await onCancellation(entry.offered_appointment_id);
   }
   req.session.flash = { success: 'تم رفض العرض.' };
   res.redirect('/patient/notifications');
 });
 
 // Queue status
-router.get('/queue', guard, (req, res) => {
+router.get('/queue', guard, async (req, res) => {
   const userId = req.session.user.id;
   const today = localDate();
 
-  const queueEntry = db.prepare(`
+  const queueEntry = await db.prepare(`
     SELECT q.*, d.avg_consultation_minutes, u.name as doctor_name, s.name as specialty_name
     FROM queue_entries q
     JOIN doctors d ON q.doctor_id = d.id
@@ -377,22 +377,23 @@ router.get('/queue', guard, (req, res) => {
 
   let waitMinutes = 0;
   if (queueEntry) {
-    waitMinutes = estimateWaitTime(queueEntry.doctor_id, queueEntry.position);
+    waitMinutes = await estimateWaitTime(queueEntry.doctor_id, queueEntry.position);
   }
 
   res.render('patient/queue', { title: 'حالة الطابور', queueEntry, waitMinutes, today });
 });
 
 // Notifications
-router.get('/notifications', guard, (req, res) => {
+router.get('/notifications', guard, async (req, res) => {
   const userId = req.session.user.id;
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = 20;
   const offset = (page - 1) * limit;
 
-  markAllRead(userId);
-  const notifications = getNotifications(userId, limit, offset);
-  const total = db.prepare('SELECT COUNT(*) as cnt FROM notifications WHERE user_id = ?').get(userId).cnt;
+  await markAllRead(userId);
+  const notifications = await getNotifications(userId, limit, offset);
+  const totalRow = await db.prepare('SELECT COUNT(*) as cnt FROM notifications WHERE user_id = ?').get(userId);
+  const total = totalRow.cnt;
 
   res.render('patient/notifications', {
     title: 'الإشعارات',

@@ -21,11 +21,11 @@ function minutesToTime(mins) {
  * Generate all possible time slots for a doctor on a given date (YYYY-MM-DD).
  * Returns array of { start, end } objects.
  */
-function generateSlots(doctorId, date) {
+async function generateSlots(doctorId, date) {
   const d = new Date(date + 'T00:00:00');
   const dayOfWeek = d.getDay(); // 0=Sun … 6=Sat
 
-  const sched = db.prepare(`
+  const sched = await db.prepare(`
     SELECT start_time, end_time, slot_duration_minutes
     FROM doctor_schedules
     WHERE doctor_id = ? AND day_of_week = ?
@@ -34,7 +34,7 @@ function generateSlots(doctorId, date) {
   if (!sched) return [];
 
   // Check if blocked
-  const blocked = db.prepare(`
+  const blocked = await db.prepare(`
     SELECT id FROM doctor_blocked_dates WHERE doctor_id = ? AND blocked_date = ?
   `).get(doctorId, date);
   if (blocked) return [];
@@ -53,8 +53,8 @@ function generateSlots(doctorId, date) {
 /**
  * Get booked time slots for a doctor on a date (only active appointments).
  */
-function getBookedSlots(doctorId, date) {
-  return db.prepare(`
+async function getBookedSlots(doctorId, date) {
+  return await db.prepare(`
     SELECT appointment_time as start, end_time as end
     FROM appointments
     WHERE doctor_id = ? AND appointment_date = ?
@@ -78,7 +78,7 @@ function localDateStr(d) {
  * @param {string} toDate   - YYYY-MM-DD
  * @param {number} limit    - max number of slots to return
  */
-function getAvailableSlots(doctorId, fromDate, toDate, limit = 10) {
+async function getAvailableSlots(doctorId, fromDate, toDate, limit = 10) {
   const available = [];
   const cursor = new Date(fromDate + 'T00:00:00');
   const stop   = new Date(toDate   + 'T00:00:00');
@@ -87,8 +87,8 @@ function getAvailableSlots(doctorId, fromDate, toDate, limit = 10) {
 
   while (cursor <= stop && available.length < limit) {
     const dateStr = localDateStr(cursor);
-    const slots   = generateSlots(doctorId, dateStr);
-    const booked  = getBookedSlots(doctorId, dateStr);
+    const slots   = await generateSlots(doctorId, dateStr);
+    const booked  = await getBookedSlots(doctorId, dateStr);
     const bookedSet = new Set(booked.map(b => b.start));
 
     for (const slot of slots) {
@@ -109,8 +109,8 @@ function getAvailableSlots(doctorId, fromDate, toDate, limit = 10) {
  * @param {number} specialtyId
  * @param {string} fromDate
  */
-function suggestBestSlot(specialtyId, fromDate) {
-  const doctors = db.prepare(`
+async function suggestBestSlot(specialtyId, fromDate) {
+  const doctors = await db.prepare(`
     SELECT d.id as doctor_id, u.name as doctor_name, s.name as specialty_name
     FROM doctors d
     JOIN users u ON d.user_id = u.id
@@ -124,7 +124,7 @@ function suggestBestSlot(specialtyId, fromDate) {
 
   const allSlots = [];
   for (const doc of doctors) {
-    const slots = getAvailableSlots(doc.doctor_id, fromDate, toDateStr, 5);
+    const slots = await getAvailableSlots(doc.doctor_id, fromDate, toDateStr, 5);
     slots.forEach(s => allSlots.push({ ...s, doctorId: doc.doctor_id, doctorName: doc.doctor_name }));
   }
 
@@ -141,14 +141,14 @@ function suggestBestSlot(specialtyId, fromDate) {
  * Called when an appointment is cancelled.
  * Finds waiting list patients for that doctor and notifies the first one.
  */
-function onCancellation(appointmentId) {
-  const appt = db.prepare(`
+async function onCancellation(appointmentId) {
+  const appt = await db.prepare(`
     SELECT * FROM appointments WHERE id = ?
   `).get(appointmentId);
   if (!appt) return;
 
   // Find first waiting patient for this doctor whose preferred range covers the freed date
-  const waiter = db.prepare(`
+  const waiter = await db.prepare(`
     SELECT wl.*, u.name as patient_name
     FROM waiting_list wl
     JOIN users u ON wl.patient_id = u.id
@@ -166,18 +166,18 @@ function onCancellation(appointmentId) {
   const expiresAt = localDateStr(expD) + ' ' + String(expD.getHours()).padStart(2,'0') + ':' + String(expD.getMinutes()).padStart(2,'0');
 
   // Update waiting list entry to notified
-  db.prepare(`
+  await db.prepare(`
     UPDATE waiting_list
     SET status = 'notified', offered_appointment_id = ?, notified_at = datetime('now'), expires_at = ?
     WHERE id = ?
   `).run(appointmentId, expiresAt, waiter.id);
 
   // Re-mark the freed slot as 'scheduled' (hold it)
-  db.prepare(`UPDATE appointments SET status = 'scheduled', patient_id = ? WHERE id = ?`)
+  await db.prepare(`UPDATE appointments SET status = 'scheduled', patient_id = ? WHERE id = ?`)
     .run(waiter.patient_id, appointmentId);
 
   // Notify patient
-  createNotification({
+  await createNotification({
     userId: waiter.patient_id,
     title: 'موعد جديد متاح!',
     message: `توفر موعد بتاريخ ${appt.appointment_date} الساعة ${appt.appointment_time}. لديك 30 دقيقة لتأكيد الحجز.`,
@@ -191,22 +191,22 @@ function onCancellation(appointmentId) {
  * Process expired waiting list offers (called every 5 minutes).
  * If a patient didn't confirm in time, offer slot to the next patient.
  */
-function processExpiredOffers() {
-  const expired = db.prepare(`
+async function processExpiredOffers() {
+  const expired = await db.prepare(`
     SELECT * FROM waiting_list
     WHERE status = 'notified' AND expires_at <= datetime('now')
   `).all();
 
   for (const entry of expired) {
     // Cancel the hold — reset the appointment back to availability check
-    db.prepare(`UPDATE waiting_list SET status = 'expired' WHERE id = ?`).run(entry.id);
+    await db.prepare(`UPDATE waiting_list SET status = 'expired' WHERE id = ?`).run(entry.id);
 
     // Free up the appointment so next waiter can get it
     if (entry.offered_appointment_id) {
-      const appt = db.prepare('SELECT * FROM appointments WHERE id = ?').get(entry.offered_appointment_id);
+      const appt = await db.prepare('SELECT * FROM appointments WHERE id = ?').get(entry.offered_appointment_id);
       if (appt) {
         // Find next waiter
-        const nextWaiter = db.prepare(`
+        const nextWaiter = await db.prepare(`
           SELECT wl.*, u.name as patient_name
           FROM waiting_list wl
           JOIN users u ON wl.patient_id = u.id
@@ -222,16 +222,16 @@ function processExpiredOffers() {
         if (nextWaiter) {
           const nExpD = new Date(Date.now() + 30 * 60 * 1000);
           const newExpiry = localDateStr(nExpD) + ' ' + String(nExpD.getHours()).padStart(2,'0') + ':' + String(nExpD.getMinutes()).padStart(2,'0');
-          db.prepare(`
+          await db.prepare(`
             UPDATE waiting_list
             SET status = 'notified', offered_appointment_id = ?, notified_at = datetime('now'), expires_at = ?
             WHERE id = ?
           `).run(entry.offered_appointment_id, newExpiry, nextWaiter.id);
 
-          db.prepare(`UPDATE appointments SET patient_id = ? WHERE id = ?`)
+          await db.prepare(`UPDATE appointments SET patient_id = ? WHERE id = ?`)
             .run(nextWaiter.patient_id, entry.offered_appointment_id);
 
-          createNotification({
+          await createNotification({
             userId: nextWaiter.patient_id,
             title: 'موعد جديد متاح!',
             message: `توفر موعد بتاريخ ${appt.appointment_date} الساعة ${appt.appointment_time}. لديك 30 دقيقة لتأكيد الحجز.`,
@@ -241,7 +241,7 @@ function processExpiredOffers() {
           });
         } else {
           // No one waiting — free the appointment slot (cancel it)
-          db.prepare(`UPDATE appointments SET status = 'cancelled' WHERE id = ?`)
+          await db.prepare(`UPDATE appointments SET status = 'cancelled' WHERE id = ?`)
             .run(entry.offered_appointment_id);
         }
       }
