@@ -4,7 +4,7 @@ require('dotenv').config();
 const express       = require('express');
 const path          = require('path');
 const session       = require('express-session');
-const ConnectSQLite = require('connect-sqlite3')(session);
+const MemoryStore   = require('memorystore')(session);
 const helmet        = require('helmet');
 
 const ejs           = require('ejs');
@@ -42,9 +42,8 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(express.json({ limit: '10kb' }));
 
 // ── Session ──────────────────────────────────────────────
-const sessionStore = new ConnectSQLite({
-  db: 'sessions.db',
-  dir: path.join(__dirname, 'data')
+const sessionStore = new MemoryStore({
+  checkPeriod: 86400000 // prune expired entries every 24h
 });
 
 app.use(session({
