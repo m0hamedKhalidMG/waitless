@@ -42,9 +42,11 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(express.json({ limit: '10kb' }));
 
 // ── Session ──────────────────────────────────────────────
+const isVercel = process.env.VERCEL === '1';
+const sessionDir = isVercel ? '/tmp/data' : path.join(__dirname, 'data');
 const sessionStore = new ConnectSQLite({
   db: 'sessions.db',
-  dir: path.join(__dirname, 'data')
+  dir: sessionDir
 });
 
 app.use(session({
