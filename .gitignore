@@ -4,8 +4,11 @@ node_modules/
 # Environment variables
 .env
 
-# Database files (will be recreated on deploy)
+# Local database directory (generated at runtime)
 data/
+
+# Keep the seeded database template in db/
+!db/waitless.db
 
 # Debug/temporary files
 debug_*.js

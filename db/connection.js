@@ -3,14 +3,31 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-// Use /tmp on Vercel (read-only filesystem except /tmp)
 const isVercel = process.env.VERCEL === '1';
-const DATA_DIR = isVercel ? '/tmp/data' : path.join(__dirname, '..', 'data');
-const DB_PATH = path.join(DATA_DIR, 'waitless.db');
 
-// Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+if (isVercel) {
+  // On Vercel: copy the bundled DB from db/ to /tmp so it becomes writable
+  const tmpDir = '/tmp/data';
+  const tmpDb = path.join(tmpDir, 'waitless.db');
+  const bundledDb = path.join(__dirname, 'waitless.db');
+
+  if (!fs.existsSync(tmpDir)) {
+    fs.mkdirSync(tmpDir, { recursive: true });
+  }
+
+  // Copy bundled DB to /tmp only if /tmp copy doesn't exist yet
+  if (!fs.existsSync(tmpDb) && fs.existsSync(bundledDb)) {
+    fs.copyFileSync(bundledDb, tmpDb);
+  }
+
+  var DB_PATH = tmpDb;
+} else {
+  // Local dev: use data/ directory
+  const dataDir = path.join(__dirname, '..', 'data');
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+  var DB_PATH = path.join(dataDir, 'waitless.db');
 }
 
 const db = new Database(DB_PATH);
